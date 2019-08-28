@@ -2,6 +2,7 @@
 *.php
 javascripts/
 stylesheets/
+.kdev4/
 
 # Websocket files
 Websocket

@@ -21,6 +21,7 @@ SOFTWARE.
 ******************************************************************************/
 
 #include "Datastructures.h"
+#include "debug.h"
 
 /**
  * Creates a new list structure.
@@ -344,11 +345,14 @@ void ws_send(ws_client *n, ws_message *m) {
 		 * '\xFF' in the front and end of the message.
 		 */
 		send(n->socket_id, m->hybi00, m->len+2, 0);
+            print_err("HYBI00\n");
 	} else if ( n->headers->type == HIXIE75 ) {
+            print_err("HIXIE75\n");
 		
 	} else if ( n->headers->type == HYBI07 || n->headers->type == RFC6455 
 			|| n->headers->type == HYBI10) {
 		send(n->socket_id, m->enc, m->enc_len, 0);
+            print_buf( m->enc, m->enc_len);
 	}
 }
 

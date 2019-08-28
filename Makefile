@@ -1,19 +1,35 @@
-CC 		= gcc
-CFLAGS 	= -Wall -Wextra -Werror -pedantic -ggdb -DRUPIFY -g
+# Edit by liubaolong@20190828
+# make testpc
+# make pc
+
+CROSS_COMPILE ?= /home/hhh/petalinux_tool/opt/pkg/petalinux/2018.3/tools/linux-i386/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-
+
+PLATFORM?=ARM
+ifeq ($(PLATFORM) , PC)
+CROSS_COMPILE :=
+endif
+
+CC = $(CROSS_COMPILE)gcc
+CXX= $(CROSS_COMPILE)g++
+# CC 		= gcc
+# CXX 		= g++
+
+# CFLAGS 	= -Wall -Wextra -Werror -pedantic -ggdb -DRUPIFY -g -std=gnu9x
+CFLAGS 	= -g -std=gnu9x -w -DRUPIFY
 
 INCL 	= Handshake.c
 OBJECTS = Errors.o Datastructures.o Communicate.o sha1.o md5.o base64.o utf8.o
 EXEC 	= Websocket
 
-.PHONY: Websocket
+.PHONY: Websocket clean valgrind 
 
-all: clean Websocket
+all: Websocket
 
 Websocket: $(OBJECTS) 
 	$(CC) $(CFLAGS) $(INCL) $(OBJECTS) -lpthread $(EXEC).c -o $(EXEC) -std=c99
 
 clean:
-	rm -f $(EXEC) *.o
+	rm -f $(EXEC) *.o libwebsocket.a
 
 run: all
 	./$(EXEC) $(PORT)
@@ -41,3 +57,14 @@ Datastructures.o: Datastructures.c Datastructures.h
 
 Errors.o: Errors.c Errors.h Datastructures.h
 	$(CC) $(CFLAGS) -c Errors.c
+
+libwebsocket_arm:
+	make clean
+	make -f Makefile_for_lib.mk CROSS_COMPILE=$(CROSS_COMPILE) V=1
+libwebsocket_pc:
+	make clean
+	make -f Makefile_for_lib.mk V=1
+test:
+	echo $(CC)
+pc:
+	make all PLATFORM=PC

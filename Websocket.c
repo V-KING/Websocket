@@ -23,6 +23,8 @@ SOFTWARE.
 #include "Handshake.h"
 #include "Communicate.h"
 #include "Errors.h"
+#include "debug.h"
+#include "IWebsocket.h"
 
 #define PORT 4567
 
@@ -283,7 +285,9 @@ void *handleClient(void *args) {
 	pthread_cleanup_push(&cleanup_client, args);
 
 	int buffer_length = 0, string_length = 1, reads = 1;
-
+        /*
+         * TODO: onopen()
+         */
 	ws_client *n = args;
 	n->thread_id = pthread_self();
 
@@ -388,8 +392,19 @@ void *handleClient(void *args) {
 			list_multicast(l, n);
 		} else if (n->headers->protocol == ECHO) {
 			list_multicast_one(l, n, n->message);
+                        print_dbg("protocol = ECHO(%d)\n", ECHO);
 		} else {
-			list_multicast_one(l, n, n->message);
+                        /* 
+                         * TODO: void onmessage(ws_message*)
+                         */
+                        print_dbg("ws_client = \n");
+                        print_dbg("          client_ip: %s:\n", n->client_ip);
+                        print_dbg("          message.enc: \n");
+                        print_buf(n->message->enc, n->message->enc_len);
+                        print_dbg("          message->opcode: 0x%x\n", n->message->opcode[0]&0xf);
+                        print_dbg("          message->len   : %d\n", n->message->len);
+                        print_buf(n->message->msg, n->message->len);
+                        list_multicast_one(l, n, n->message);
 		}
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
@@ -403,7 +418,8 @@ void *handleClient(void *args) {
 		}
 	}
 	
-	printf("Shutting client down..\n\n");
+        /*TODO: onclose() */
+	print_info("Shutting client down..\n\n");
 	printf("> ");
 	fflush(stdout);
 
@@ -414,7 +430,7 @@ void *handleClient(void *args) {
 	pthread_cleanup_pop(0);
 	pthread_exit((void *) EXIT_SUCCESS);
 }
-
+#if 0
 int main(int argc, char *argv[]) {
 	int server_socket, client_socket, on = 1;
 	
@@ -573,3 +589,364 @@ int main(int argc, char *argv[]) {
 	pthread_attr_destroy(&pthread_attr);
 	return EXIT_SUCCESS;
 }
+#endif
+
+void *handleClient_2(void *args) {
+        pthread_detach(pthread_self());
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+        pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+        pthread_cleanup_push(&cleanup_client, args);
+
+        int buffer_length = 0, string_length = 1, reads = 1;
+
+        /*
+         * TODO: onopen()
+         */
+        struct IWebsocket *iwebsocket;
+        struct argsthread{
+            ws_client         *wsclient;
+            struct IWebsocket *iwebsocket;
+        } *pargsthread;
+        pargsthread  = args;
+        iwebsocket   = pargsthread->iwebsocket;
+        ws_client *n = pargsthread->wsclient;
+        /* add interface function */
+        iwebsocket->onopen(n);
+        
+        n->thread_id = pthread_self();
+
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
+        char buffer[BUFFERSIZE];
+        n->string = (char *) malloc(sizeof(char));
+
+        if (n->string == NULL) {
+                pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+                handshake_error("Couldn't allocate memory.", ERROR_INTERNAL, n);
+                pthread_exit((void *) EXIT_FAILURE);
+        }
+
+        printf("Client connected with the following information:\n"
+                   "\tSocket: %d\n"
+                   "\tAddress: %s\n\n", n->socket_id, (char *) n->client_ip);
+        printf("Checking whether client is valid ...\n\n");
+        fflush(stdout);
+
+        /**
+         * Getting headers and doing reallocation if headers is bigger than our
+         * allocated memory.
+         */
+        do {
+                memset(buffer, '\0', BUFFERSIZE);
+                if ((buffer_length = recv(n->socket_id, buffer, BUFFERSIZE, 0)) <= 0){
+                        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+                        handshake_error("Didn't receive any headers from the client.", 
+                                        ERROR_BAD, n);
+                        pthread_exit((void *) EXIT_FAILURE);
+                }
+
+                if (reads == 1 && strlen(buffer) < 14) {
+                        handshake_error("SSL request is not supported yet.", 
+                                        ERROR_NOT_IMPL, n);
+                        pthread_exit((void *) EXIT_FAILURE);
+                }
+
+                string_length += buffer_length;
+
+                char *tmp = realloc(n->string, string_length);
+                if (tmp == NULL) {
+                        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+                        handshake_error("Couldn't reallocate memory.", ERROR_INTERNAL, n);
+                        pthread_exit((void *) EXIT_FAILURE);
+                }
+                n->string = tmp;
+                tmp = NULL;
+
+                memset(n->string + (string_length-buffer_length-1), '\0', 
+                                buffer_length+1);
+                memcpy(n->string + (string_length-buffer_length-1), buffer, 
+                                buffer_length);
+                reads++;
+        } while( strncmp("\r\n\r\n", n->string + (string_length-5), 4) != 0 
+                        && strncmp("\n\n", n->string + (string_length-3), 2) != 0
+                        && strncmp("\r\n\r\n", n->string + (string_length-8-5), 4) != 0
+                        && strncmp("\n\n", n->string + (string_length-8-3), 2) != 0 );
+        
+        printf("User connected with the following headers:\n%s\n\n", n->string);
+        fflush(stdout);
+
+        ws_header *h = header_new();
+
+        if (h == NULL) {
+                pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+                handshake_error("Couldn't allocate memory.", ERROR_INTERNAL, n);
+                pthread_exit((void *) EXIT_FAILURE);
+        }
+
+        n->headers = h;
+
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        if ( parseHeaders(n->string, n, port) < 0 ) {
+                pthread_exit((void *) EXIT_FAILURE);
+        }
+
+        if ( sendHandshake(n) < 0 && n->headers->type != UNKNOWN ) {
+                pthread_exit((void *) EXIT_FAILURE);    
+        }       
+
+        list_add(l, n);
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
+        printf("Client has been validated and is now connected\n\n");
+        printf("> ");
+        fflush(stdout);
+
+        uint64_t next_len = 0;
+        char next[BUFFERSIZE];
+        memset(next, '\0', BUFFERSIZE);
+
+        while (1) {
+                if ( communicate(n, next, next_len) != CONTINUE) {
+                        break;
+                }
+
+                pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+                if (n->headers->protocol == CHAT) {
+                        list_multicast(l, n);
+                } else if (n->headers->protocol == ECHO) {
+                        list_multicast_one(l, n, n->message);
+                        print_dbg("protocol = ECHO(%d)\n", ECHO);
+                } else {
+                        /* 
+                         * TODO: void onmessage(ws_message*)
+                         */
+                        print_dbg("ws_client = \n");
+                        print_dbg("          client_ip: %s:\n", n->client_ip);
+                        print_dbg("          message.enc: \n");
+                        print_buf(n->message->enc, n->message->enc_len);
+                        print_dbg("          message->opcode: 0x%x\n", n->message->opcode[0]&0xf);
+                        print_dbg("          message->len   : %d\n", n->message->len);
+                        print_buf(n->message->msg, n->message->len);
+                        iwebsocket->onmessage(n, n->message);
+                        //list_multicast_one(l, n, n->message);
+                }
+                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
+                if (n->message != NULL) {
+                        memset(next, '\0', BUFFERSIZE);
+                        memcpy(next, n->message->next, n->message->next_len);
+                        next_len = n->message->next_len;
+                        message_free(n->message);
+                        free(n->message);
+                        n->message = NULL;      
+                }
+        }
+        
+        /*
+         * TODO: onclose() 
+         */
+        iwebsocket->onclose(n);
+        print_info("Shutting client down..\n\n");
+        printf("> ");
+        fflush(stdout);
+
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        list_remove(l, n);
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
+        pthread_cleanup_pop(0);
+        pthread_exit((void *) EXIT_SUCCESS);
+}
+int start_websocket_server(struct IWebsocket *iwebsocket) {
+        if(iwebsocket == NULL){
+            print_err("is NULL\n");
+            return -1;
+        }
+        int server_socket, client_socket, on = 1;
+        
+        struct sockaddr_in server_addr, client_addr;
+        socklen_t client_length;
+        pthread_t pthread_id;
+        pthread_attr_t pthread_attr;
+
+        /**
+         * Creating new lists, l is supposed to contain the connected users.
+         */
+        l = list_new();
+
+        /**
+         * Listens for CTRL-C and Segmentation faults.
+         */ 
+        (void) signal(SIGINT, &sigint_handler);
+        (void) signal(SIGSEGV, &sigint_handler);
+        (void) signal(SIGPIPE, &sigint_handler);
+
+
+        printf("Server: \t\tStarted\n");
+        fflush(stdout);
+
+        /**
+         * Assigning port value.
+         */
+        port = iwebsocket->port;
+        if (port <= 1024 || port >= 65565) {
+            port = PORT;
+        }
+
+        printf("Port: \t\t\t%d\n", port);
+        fflush(stdout);
+
+        /**
+         * Opening server socket.
+         */
+        if ( (server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0 ) {
+                server_error(strerror(errno), server_socket, l);
+        }
+
+        printf("Socket: \t\tInitialized\n");
+        fflush(stdout);
+
+        /**
+         * Allow reuse of address, when the server shuts down.
+         */
+        if ( (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &on, 
+                                        sizeof(on))) < 0 ){
+                server_error(strerror(errno), server_socket, l);
+        }
+
+        printf("Reuse Port %d: \tEnabled\n", port);
+        fflush(stdout);
+
+        memset((char *) &server_addr, '\0', sizeof(server_addr));
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        server_addr.sin_port = htons(port);
+
+        printf("Ip Address: \t\t%s\n", inet_ntoa(server_addr.sin_addr));
+        fflush(stdout);
+
+        /**
+         * Bind address.
+         */
+        if ( (bind(server_socket, (struct sockaddr *) &server_addr, 
+                        sizeof(server_addr))) < 0 ) {
+                server_error(strerror(errno), server_socket, l);
+        }
+
+        printf("Binding: \t\tSuccess\n");
+        fflush(stdout);
+
+        /**
+         * Listen on the server socket for connections
+         */
+        if ( (listen(server_socket, 10)) < 0) {
+                server_error(strerror(errno), server_socket, l);
+        }
+
+        printf("Listen: \t\tSuccess\n\n");
+        fflush(stdout);
+
+        /**
+         * Attributes for the threads we will create when a new client connects.
+         */
+        pthread_attr_init(&pthread_attr);
+        pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED);
+        pthread_attr_setstacksize(&pthread_attr, 524288);
+
+        printf("Server is now waiting for clients to connect ...\n\n");
+        fflush(stdout);
+
+        /**
+         * Create commandline, such that we can do simple commands on the server.
+         */
+        if(iwebsocket->bNeed_stdinput_for_test = 1){
+            if ( (pthread_create(&pthread_id, &pthread_attr, cmdline, NULL)) < 0 ){
+                server_error(strerror(errno), server_socket, l);
+            }
+        }
+
+        /**
+         * Do not wait for the thread to terminate.
+         */
+        pthread_detach(pthread_id);
+
+        while (1) {
+                client_length = sizeof(client_addr);
+                
+                /**
+                 * If a client connects, we observe it here.
+                 */
+                if ( (client_socket = accept(server_socket, 
+                                (struct sockaddr *) &client_addr,
+                                &client_length)) < 0) {
+                        server_error(strerror(errno), server_socket, l);
+                }
+
+                /**
+                 * Save some information about the client, which we will
+                 * later use to identify him with.
+                 */
+                char *temp = (char *) inet_ntoa(client_addr.sin_addr);
+                char *addr = (char *) malloc( sizeof(char)*(strlen(temp)+1) );
+                if (addr == NULL) {
+                        server_error(strerror(errno), server_socket, l);
+                        break;
+                }
+                memset(addr, '\0', strlen(temp)+1);
+            memcpy(addr, temp, strlen(temp));   
+
+                ws_client *n = client_new(client_socket, addr);
+
+                /**
+                 * Create client thread, which will take care of handshake and all
+                 * communication with the client.
+                 */
+                struct argsthread{
+                    ws_client         *wsclient;
+                    struct IWebsocket *iwebsocket;
+                } _argsthread;
+                _argsthread.wsclient   = n;
+                _argsthread.iwebsocket = iwebsocket;
+                if ( (pthread_create(&pthread_id, &pthread_attr, handleClient_2, (void *) &_argsthread)) < 0 ){
+                        server_error(strerror(errno), server_socket, l);
+                }
+
+                pthread_detach(pthread_id);
+        }
+
+        list_free(l);
+        l = NULL;
+        close(server_socket);
+        pthread_attr_destroy(&pthread_attr);
+        return EXIT_SUCCESS;
+}
+
+void *onopen(ws_client *wsclient){
+    __pBegin
+    __pEnd
+}
+void *onclose(ws_client *wsclient){
+    __pBegin
+    __pEnd
+}
+
+void *onmessage(ws_client *wsclient, ws_message *message){
+    __pBegin
+    /* here: ws_client->message == message */
+    list_multicast_one(l, wsclient, message);
+    __pEnd
+}
+
+#if 1
+int main(int argc, char *argv[]){
+    struct IWebsocket iwebsocket;
+    iwebsocket.port = 8000;
+    iwebsocket.onopen = onopen;
+    iwebsocket.onclose= onclose;
+    iwebsocket.onmessage= onmessage;
+    iwebsocket.bNeed_stdinput_for_test = 1;
+    start_websocket_server(&iwebsocket);
+    return 0;
+}
+#endif

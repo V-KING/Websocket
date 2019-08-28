@@ -21,6 +21,7 @@ SOFTWARE.
 ******************************************************************************/
 
 #include "Communicate.h"
+#include "debug.h"
 
 /** 
  * Converts the unsigned 64 bit integer from host byte order to network byte 
@@ -327,6 +328,7 @@ ws_connection_close encodeMessage(ws_message *m) {
 	 * RFC6455 message encoding
 	 */
 	if (m->len <= 125) {
+                print_info("<= 125\n");
 		length += 2;
 		m->enc = (char *) malloc(sizeof(char) * length);
 		if (m->enc == NULL) {
@@ -334,10 +336,17 @@ ws_connection_close encodeMessage(ws_message *m) {
 			fflush(stdout);
 			return CLOSE_UNEXPECTED;
 		}
-		m->enc[0] = '\x81';
+		if((m->opcode[0]&0x0f) == 0x01){
+                    m->enc[0] = '\x81'; 
+                }else if((m->opcode[0]&0xf) == 0x02){
+                    m->enc[0] = '\x82'; 
+                }else if((m->opcode[0]&0xf) == 0x00){
+                    print_dbg("continue opcode\n");
+                }
 		m->enc[1] = m->len;
 		memcpy(m->enc + 2, m->msg, m->len);
 	} else if (m->len <= 65535) {
+                print_info("<=65535\n");
 		uint16_t sz16;
 		length += 4;
 		m->enc = (char *) malloc(sizeof(char) * length);
@@ -346,12 +355,17 @@ ws_connection_close encodeMessage(ws_message *m) {
 			fflush(stdout);
 			return CLOSE_UNEXPECTED;
 		}
-		m->enc[0] = '\x81';
+                if((m->opcode[0]&0x0f) == 0x1){
+                    m->enc[0] = '\x81'; 
+                }else if((m->opcode[0]&0x0f) == 0x2){
+                    m->enc[0] = '\x82'; 
+                }
 		m->enc[1] = 126;
 		sz16 = htons(m->len);
 		memcpy(m->enc + 2, &sz16, sizeof(uint16_t));
 		memcpy(m->enc + 4, m->msg, m->len);
 	} else {
+                print_dbg("#\n");
 		uint64_t sz64;
 		length += 10;
 		m->enc = (char *) malloc(sizeof(char) * length);
@@ -360,7 +374,11 @@ ws_connection_close encodeMessage(ws_message *m) {
 			fflush(stdout);
 			return CLOSE_UNEXPECTED;
 		}
-		m->enc[0] = '\x81';
+                if((m->opcode[0]&0x0f) == 0x1){
+                    m->enc[0] = '\x81'; 
+                }else if((m->opcode[0]&0x0f) == 0x2){
+                    m->enc[0] = '\x82'; 
+                }
 		m->enc[1] = 127;
 		sz64 = ntohl64(m->len);
 		memcpy(m->enc + 2, &sz64, sizeof(uint64_t));
@@ -382,6 +400,7 @@ ws_connection_close encodeMessage(ws_message *m) {
 	m->hybi00[m->len+1] = '\xFF';
 	memcpy(m->hybi00+1, m->msg, m->len);
 
+        
 	return CONTINUE;
 }
 
@@ -531,9 +550,12 @@ ws_connection_close communicate(ws_client *n, char *next, uint64_t next_len) {
 			 * BINARY: data. 
 			 * TODO: find out what to do here!
 			 **/
-			printf("Binary data arrived\n\n");
-			fflush(stdout);
-			return CLOSE_TYPE;
+			print_info("Binary data arrived\n\n");
+                        print_buf(n->message->msg, n->message->len);
+			//fflush(stdout);
+                        if ( (status = encodeMessage(n->message)) != CONTINUE) {
+                                return status;
+                        }
 		} else if (n->message->opcode[0] == '\x01' || n->message->opcode[0] == '\x81') {
 			/** 
 			 * TEXT: encode the message to make it ready to be send to all 
