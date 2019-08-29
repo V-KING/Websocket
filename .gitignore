@@ -3,6 +3,7 @@
 javascripts/
 stylesheets/
 .kdev4/
+valgrind.log
 
 # Websocket files
 Websocket

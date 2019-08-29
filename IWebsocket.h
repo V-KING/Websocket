@@ -10,4 +10,10 @@ struct IWebsocket{
     void *(*onmessage)(ws_client *, ws_message *);
 };
 
+/*
+ * caz javascript can't do well with binary data;
+ * so just send text, message_new() is new a text message.
+ */
+extern int ws_send_text(ws_client *wsclient, char *text);
+
 #endif

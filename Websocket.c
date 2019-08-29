@@ -31,6 +31,41 @@ SOFTWARE.
 ws_list *l;
 int port;
 
+/*
+ * caz javascript can't do well with binary data;
+ * so just send text, message_new() is new a text message.
+ * TODO: when text lenght>125, how to send
+ */
+int ws_send_text(ws_client *wsclient, char *text){
+    __pBegin
+    ws_connection_close   status;
+    ws_message            *m = message_new();
+    m->opcode[0] = '\x81'; 
+    
+    m->len = strlen(text);
+    char *temp = malloc( sizeof(char)*(m->len+1) );
+    if (temp == NULL) {
+        print_err("malloc err\n");
+        return 0;
+    }
+    memset(temp, '\0', (m->len+1));
+    memcpy(temp, text, m->len);
+    m->msg = temp;
+    temp = NULL;
+    
+    
+    if ( (status = encodeMessage(m)) != CONTINUE) {
+        message_free(m);
+        free(m);
+        return -1;
+    }
+    list_multicast_one(l, wsclient, m);
+    message_free(m);
+    free(m); 
+    __pEnd
+    return 0;
+}
+
 /**
  * Handler to call when CTRL+C is typed. This function shuts down the server
  * in a safe way.
@@ -278,6 +313,7 @@ void *cmdline(void *arg) {
 	pthread_exit((void *) EXIT_SUCCESS);
 }
 
+#if 0
 void *handleClient(void *args) {
 	pthread_detach(pthread_self());
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -430,7 +466,6 @@ void *handleClient(void *args) {
 	pthread_cleanup_pop(0);
 	pthread_exit((void *) EXIT_SUCCESS);
 }
-#if 0
 int main(int argc, char *argv[]) {
 	int server_socket, client_socket, on = 1;
 	
@@ -860,7 +895,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         /**
          * Create commandline, such that we can do simple commands on the server.
          */
-        if(iwebsocket->bNeed_stdinput_for_test = 1){
+        if(iwebsocket->bNeed_stdinput_for_test == 1){
             if ( (pthread_create(&pthread_id, &pthread_attr, cmdline, NULL)) < 0 ){
                 server_error(strerror(errno), server_socket, l);
             }
@@ -922,6 +957,8 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         return EXIT_SUCCESS;
 }
 
+#ifdef TEST_MAIN_PC
+// #if 1
 void *onopen(ws_client *wsclient){
     __pBegin
     __pEnd
@@ -930,22 +967,26 @@ void *onclose(ws_client *wsclient){
     __pBegin
     __pEnd
 }
-
+/*
+ * don't need to free message.It will free after onmessage
+ */
 void *onmessage(ws_client *wsclient, ws_message *message){
     __pBegin
     /* here: ws_client->message == message */
-    list_multicast_one(l, wsclient, message);
+    list_multicast_one(l, wsclient,wsclient->message);
+    ws_send_text(wsclient, "1234567");
     __pEnd
 }
 
-#if 1
+
 int main(int argc, char *argv[]){
     struct IWebsocket iwebsocket;
-    iwebsocket.port = 8000;
-    iwebsocket.onopen = onopen;
-    iwebsocket.onclose= onclose;
-    iwebsocket.onmessage= onmessage;
-    iwebsocket.bNeed_stdinput_for_test = 1;
+    iwebsocket.port      = 8000;
+    iwebsocket.onopen    = onopen;
+    iwebsocket.onclose   = onclose;
+    iwebsocket.onmessage = onmessage;
+    iwebsocket.bNeed_stdinput_for_test = 0;
+    
     start_websocket_server(&iwebsocket);
     return 0;
 }

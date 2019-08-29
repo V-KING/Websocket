@@ -1,12 +1,7 @@
 #ifndef _debug_H
 #define _debug_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <fcntl.h>
-#include <string.h>
+
 
 
 #if 0
@@ -43,7 +38,7 @@
 #ifdef INVG_RELEASE
 #define print_dbg(fmt, arg...)
 #define print_info(fmt, arg...)
-#define print_err(fmt, arg...)          psys_err(fmt, arg...)
+#define print_err(fmt, arg...)          
 #define __print_errno
 #define print_pAddr(p1, p2)
 #define print_buf(buf, len)

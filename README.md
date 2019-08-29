@@ -1,9 +1,37 @@
+# API
+```c
+void *onopen(ws_client *wsclient){
+}
+void *onclose(ws_client *wsclient){
+}
+/*
+ * don't need to free message.It will free after onmessage
+ */
+void *onmessage(ws_client *wsclient, ws_message *message){
+    ws_send_text(wsclient, "1234567");
+}
+
+
+int main(int argc, char *argv[]){
+    struct IWebsocket iwebsocket;
+    iwebsocket.port      = 8000;
+    iwebsocket.onopen    = onopen;
+    iwebsocket.onclose   = onclose;
+    iwebsocket.onmessage = onmessage;
+    iwebsocket.bNeed_stdinput_for_test = 0;
+    
+    start_websocket_server(&iwebsocket);
+    return 0;
+}
+```
+
 # Websocket Server in C 
 
 The code in this repository is supposed to support the awesome websocket 
 feature, that was introduced as part of the HTML5 standard. The idea with the
 project was originally to learn the C language and furthermore understand the
 basics of websockets. 
+
 
 # Support
 
@@ -12,7 +40,7 @@ systems. It does not have any dependencies to other libraries than the standard
 libraries in UNIX. As of 09/04-2013 it has been compiled and tested on the 
 following operating systems:
 
-* Ubuntu 12.04
+* Ubuntu 12.04, Ubuntu16.04, arm
 * Arch Linux
 * MAC OS x 10.8
 

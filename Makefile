@@ -1,12 +1,13 @@
 # Edit by liubaolong@20190828
-# make testpc
 # make pc
+# make libwebsocket_arm CROSS_COMPILE=/gcc_path/arm-linux-
 
 CROSS_COMPILE ?= /home/hhh/petalinux_tool/opt/pkg/petalinux/2018.3/tools/linux-i386/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-
 
 PLATFORM?=ARM
 ifeq ($(PLATFORM) , PC)
 CROSS_COMPILE :=
+CFLAGS = -DTEST_MAIN_PC
 endif
 
 CC = $(CROSS_COMPILE)gcc
@@ -15,7 +16,7 @@ CXX= $(CROSS_COMPILE)g++
 # CXX 		= g++
 
 # CFLAGS 	= -Wall -Wextra -Werror -pedantic -ggdb -DRUPIFY -g -std=gnu9x
-CFLAGS 	= -g -std=gnu9x -w -DRUPIFY
+CFLAGS += -g -std=gnu9x -w -DRUPIFY -DINVG_RELEASE
 
 INCL 	= Handshake.c
 OBJECTS = Errors.o Datastructures.o Communicate.o sha1.o md5.o base64.o utf8.o
@@ -34,8 +35,8 @@ clean:
 run: all
 	./$(EXEC) $(PORT)
 
-valgrind: all
-	valgrind --leak-check=full --log-file="LOG" --track-origins=yes --show-reachable=yes ./$(EXEC) $(PORT)
+valgrind:
+	valgrind --leak-check=full --log-file="valgrind.log" --track-origins=yes --show-reachable=yes ./$(EXEC) $(PORT)
 
 base64.o: base64.c base64.h
 	$(CC) $(CFLAGS) -c base64.c
