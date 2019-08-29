@@ -341,7 +341,8 @@ ws_connection_close encodeMessage(ws_message *m) {
                 }else if((m->opcode[0]&0xf) == 0x02){
                     m->enc[0] = '\x82'; 
                 }else if((m->opcode[0]&0xf) == 0x00){
-                    print_dbg("continue opcode\n");
+                    //print_dbg("continue opcode, replease a text message\n");
+                    m->enc[0] = '\x81'; 
                 }
 		m->enc[1] = m->len;
 		memcpy(m->enc + 2, m->msg, m->len);
@@ -359,6 +360,9 @@ ws_connection_close encodeMessage(ws_message *m) {
                     m->enc[0] = '\x81'; 
                 }else if((m->opcode[0]&0x0f) == 0x2){
                     m->enc[0] = '\x82'; 
+                }else if((m->opcode[0]&0xf) == 0x00){
+                    //print_dbg("continue opcode, replease a text message\n");
+                    m->enc[0] = '\x81'; 
                 }
 		m->enc[1] = 126;
 		sz16 = htons(m->len);

@@ -30,11 +30,11 @@ SOFTWARE.
 
 ws_list *l;
 int port;
+int count_client = 0;
 
 /*
  * caz javascript can't do well with binary data;
  * so just send text, message_new() is new a text message.
- * TODO: when text lenght>125, how to send
  */
 int ws_send_text(ws_client *wsclient, char *text){
     __pBegin
@@ -66,6 +66,39 @@ int ws_send_text(ws_client *wsclient, char *text){
     return 0;
 }
 
+/*
+ * caz javascript can't do well with binary data;
+ * so just send text, message_new() is new a text message.
+ */
+int ws_send_text_all(char *text){
+    __pBegin
+    ws_connection_close   status;
+    ws_message            *m = message_new();
+    m->opcode[0] = '\x81'; 
+    
+    m->len = strlen(text);
+    char *temp = malloc( sizeof(char)*(m->len+1) );
+    if (temp == NULL) {
+        print_err("malloc err\n");
+        return 0;
+    }
+    memset(temp, '\0', (m->len+1));
+    memcpy(temp, text, m->len);
+    m->msg = temp;
+    temp = NULL;
+    
+    
+    if ( (status = encodeMessage(m)) != CONTINUE) {
+        message_free(m);
+        free(m);
+        return -1;
+    }
+    list_multicast_all(l, m);
+    message_free(m);
+    free(m); 
+    __pEnd
+    return 0;
+}
 /**
  * Handler to call when CTRL+C is typed. This function shuts down the server
  * in a safe way.
@@ -89,7 +122,7 @@ void sigint_handler(int sig) {
 void cleanup_client(void *args) {
 	ws_client *n = args;
 	if (n != NULL) {
-		printf("Shutting client down..\n\n> ");
+		print_info("Shutting client down..\n\n> ");
 		fflush(stdout);
 		list_remove(l, n);
 	}
@@ -105,7 +138,7 @@ void *cmdline(void *arg) {
 	
 	while (1) {
 		memset(buffer, '\0', 1024);
-		printf("> ");
+		printf("> \n");
 		fflush(stdout);
 		fgets(buffer, 1024, stdin);
 		
@@ -648,6 +681,7 @@ void *handleClient_2(void *args) {
         /* add interface function */
         iwebsocket->onopen(n);
         
+  
         n->thread_id = pthread_self();
 
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
@@ -661,11 +695,12 @@ void *handleClient_2(void *args) {
                 handshake_error("Couldn't allocate memory.", ERROR_INTERNAL, n);
                 pthread_exit((void *) EXIT_FAILURE);
         }
-
+#ifdef INVG_RELEASE
         printf("Client connected with the following information:\n"
                    "\tSocket: %d\n"
                    "\tAddress: %s\n\n", n->socket_id, (char *) n->client_ip);
         printf("Checking whether client is valid ...\n\n");
+#endif
         fflush(stdout);
 
         /**
@@ -707,8 +742,9 @@ void *handleClient_2(void *args) {
                         && strncmp("\n\n", n->string + (string_length-3), 2) != 0
                         && strncmp("\r\n\r\n", n->string + (string_length-8-5), 4) != 0
                         && strncmp("\n\n", n->string + (string_length-8-3), 2) != 0 );
-        
+#ifdef INVG_RELEASE
         printf("User connected with the following headers:\n%s\n\n", n->string);
+#endif
         fflush(stdout);
 
         ws_header *h = header_new();
@@ -734,7 +770,17 @@ void *handleClient_2(void *args) {
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         printf("Client has been validated and is now connected\n\n");
-        printf("> ");
+        printf("> \n");
+        
+        if(iwebsocket->max_client > 0){
+            print_dbg("max_client= %d, count_client=%d\n", iwebsocket->max_client, count_client);
+            if(count_client > iwebsocket->max_client){
+                print_err("max_client= %d, count_client=%d\n", iwebsocket->max_client, count_client);
+                ws_send_text(n, "Too many client. Server break this connection");
+                goto _exit_handleclient;
+            }
+        }
+        
         fflush(stdout);
 
         uint64_t next_len = 0;
@@ -743,7 +789,7 @@ void *handleClient_2(void *args) {
 
         while (1) {
                 if ( communicate(n, next, next_len) != CONTINUE) {
-                        break;
+                        goto _exit_handleclient;
                 }
 
                 pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
@@ -756,17 +802,9 @@ void *handleClient_2(void *args) {
                         /* 
                          * TODO: void onmessage(ws_message*)
                          */
-                        print_dbg("ws_client = \n");
-                        print_dbg("          client_ip: %s:\n", n->client_ip);
-                        print_dbg("          message.enc: \n");
-                        print_buf(n->message->enc, n->message->enc_len);
-                        print_dbg("          message->opcode: 0x%x\n", n->message->opcode[0]&0xf);
-                        print_dbg("          message->len   : %d\n", n->message->len);
-                        print_buf(n->message->msg, n->message->len);
                         iwebsocket->onmessage(n, n->message);
                         //list_multicast_one(l, n, n->message);
                 }
-                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
                 if (n->message != NULL) {
                         memset(next, '\0', BUFFERSIZE);
@@ -776,18 +814,22 @@ void *handleClient_2(void *args) {
                         free(n->message);
                         n->message = NULL;      
                 }
+                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         }
         
+_exit_handleclient:
         /*
          * TODO: onclose() 
          */
         iwebsocket->onclose(n);
-        print_info("Shutting client down..\n\n");
-        printf("> ");
+        print_dbg("Shutting client down..\n\n");
+        printf("> \n");
         fflush(stdout);
 
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         list_remove(l, n);
+        count_client--;
+        print_dbg("count_client -- \n\n");
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         pthread_cleanup_pop(0);
@@ -818,7 +860,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         (void) signal(SIGPIPE, &sigint_handler);
 
 
-        printf("Server: \t\tStarted\n");
+        print_dbg("Server: \t\t\tStarted\n");
         fflush(stdout);
 
         /**
@@ -829,7 +871,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
             port = PORT;
         }
 
-        printf("Port: \t\t\t%d\n", port);
+        print_dbg("Port: \t\t\t%d\n", port);
         fflush(stdout);
 
         /**
@@ -839,7 +881,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                 server_error(strerror(errno), server_socket, l);
         }
 
-        printf("Socket: \t\tInitialized\n");
+        print_dbg("Socket: \t\t\tInitialized\n");
         fflush(stdout);
 
         /**
@@ -850,7 +892,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                 server_error(strerror(errno), server_socket, l);
         }
 
-        printf("Reuse Port %d: \tEnabled\n", port);
+        print_dbg("Reuse Port %d: \tEnabled\n", port);
         fflush(stdout);
 
         memset((char *) &server_addr, '\0', sizeof(server_addr));
@@ -858,7 +900,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
         server_addr.sin_port = htons(port);
 
-        printf("Ip Address: \t\t%s\n", inet_ntoa(server_addr.sin_addr));
+        print_dbg("Ip Address: \t\t%s\n", inet_ntoa(server_addr.sin_addr));
         fflush(stdout);
 
         /**
@@ -869,7 +911,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                 server_error(strerror(errno), server_socket, l);
         }
 
-        printf("Binding: \t\tSuccess\n");
+        print_dbg("Binding: \t\tSuccess\n");
         fflush(stdout);
 
         /**
@@ -879,7 +921,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                 server_error(strerror(errno), server_socket, l);
         }
 
-        printf("Listen: \t\tSuccess\n\n");
+        print_dbg("Listen: \t\t\tSuccess\n\n");
         fflush(stdout);
 
         /**
@@ -889,7 +931,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED);
         pthread_attr_setstacksize(&pthread_attr, 524288);
 
-        printf("Server is now waiting for clients to connect ...\n\n");
+        print_dbg("Server is now waiting for clients to connect ...\n\n");
         fflush(stdout);
 
         /**
@@ -899,12 +941,12 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
             if ( (pthread_create(&pthread_id, &pthread_attr, cmdline, NULL)) < 0 ){
                 server_error(strerror(errno), server_socket, l);
             }
+            /**
+             * Do not wait for the thread to terminate.
+             */
+            pthread_detach(pthread_id);
         }
 
-        /**
-         * Do not wait for the thread to terminate.
-         */
-        pthread_detach(pthread_id);
 
         while (1) {
                 client_length = sizeof(client_addr);
@@ -912,11 +954,11 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                 /**
                  * If a client connects, we observe it here.
                  */
-                if ( (client_socket = accept(server_socket, 
-                                (struct sockaddr *) &client_addr,
-                                &client_length)) < 0) {
+                if ( (client_socket = accept(server_socket, (struct sockaddr *) &client_addr, &client_length)) < 0) {
                         server_error(strerror(errno), server_socket, l);
                 }
+
+                count_client++;
 
                 /**
                  * Save some information about the client, which we will
@@ -929,8 +971,8 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                         break;
                 }
                 memset(addr, '\0', strlen(temp)+1);
-            memcpy(addr, temp, strlen(temp));   
-
+                memcpy(addr, temp, strlen(temp));   
+                
                 ws_client *n = client_new(client_socket, addr);
 
                 /**
@@ -973,8 +1015,9 @@ void *onclose(ws_client *wsclient){
 void *onmessage(ws_client *wsclient, ws_message *message){
     __pBegin
     /* here: ws_client->message == message */
-    list_multicast_one(l, wsclient,wsclient->message);
-    ws_send_text(wsclient, "1234567");
+    print_info("Received(%s): %s\n",wsclient->client_ip , message->msg);
+    ws_send_text(wsclient, message->msg);
+    ws_send_text_all(message->msg);
     __pEnd
 }
 
@@ -985,7 +1028,8 @@ int main(int argc, char *argv[]){
     iwebsocket.onopen    = onopen;
     iwebsocket.onclose   = onclose;
     iwebsocket.onmessage = onmessage;
-    iwebsocket.bNeed_stdinput_for_test = 0;
+    iwebsocket.max_client= 2;
+    iwebsocket.bNeed_stdinput_for_test = 1;
     
     start_websocket_server(&iwebsocket);
     return 0;

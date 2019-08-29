@@ -573,7 +573,9 @@ int sendHandshake(ws_client *n) {
 		memcpy(response + memlen, "\r\n\r\n", 4);
 		memlen += 4;
 
+#ifdef INVG_RELEASE
 		printf("Server responds with the following headers:\n%s\n", response);
+#endif
 		fflush(stdout);
 
 		if (memlen != length) {

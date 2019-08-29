@@ -1,5 +1,22 @@
 # API
+## For linux pc: 
+test on linux pc(Ubuntu12.04, Ubuntu16.04):
+> make pc
+> make run
+
+
+generate --> libwebsocket.a
+> make libwebsocket_pc
+
+
+## For linux ARM
+generate --> libwebsocket.a: 
+> make libwebsocket_arm CROSS_COMPILE=/gcc_path/arm-linux-
+
+
+## How to use libwebsocket.a
 ```c
+#include "IWebsocket.h"
 void *onopen(ws_client *wsclient){
 }
 void *onclose(ws_client *wsclient){
@@ -8,9 +25,11 @@ void *onclose(ws_client *wsclient){
  * don't need to free message.It will free after onmessage
  */
 void *onmessage(ws_client *wsclient, ws_message *message){
-    ws_send_text(wsclient, "1234567");
+    /* here: ws_client->message == message */
+    print_info("Received(%s): %s\n",wsclient->client_ip , message->msg);
+    ws_send_text(wsclient, message->msg);
+    ws_send_text_all(message->msg);
 }
-
 
 int main(int argc, char *argv[]){
     struct IWebsocket iwebsocket;
@@ -18,7 +37,8 @@ int main(int argc, char *argv[]){
     iwebsocket.onopen    = onopen;
     iwebsocket.onclose   = onclose;
     iwebsocket.onmessage = onmessage;
-    iwebsocket.bNeed_stdinput_for_test = 0;
+    iwebsocket.max_client= 2;
+    iwebsocket.bNeed_stdinput_for_test = 1;
     
     start_websocket_server(&iwebsocket);
     return 0;
