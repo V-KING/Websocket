@@ -9,10 +9,9 @@ generate --> libwebsocket.a
 > make libwebsocket_pc
 
 
-
 ## For linux ARM
 generate --> libwebsocket.a: 
-> make libwebsocket_arm
+> make libwebsocket_arm CROSS_COMPILE=/gcc_path/arm-linux-
 
 
 ## How to use libwebsocket.a
