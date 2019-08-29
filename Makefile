@@ -15,8 +15,8 @@ CXX= $(CROSS_COMPILE)g++
 # CC 		= gcc
 # CXX 		= g++
 
-# CFLAGS 	= -Wall -Wextra -Werror -pedantic -ggdb -DRUPIFY -g -std=gnu9x
 CFLAGS += -g -std=gnu9x -w -DRUPIFY -DINVG_RELEASE
+# CFLAGS += -g -std=gnu9x -w -DRUPIFY
 
 INCL 	= Handshake.c
 OBJECTS = Errors.o Datastructures.o Communicate.o sha1.o md5.o base64.o utf8.o
@@ -32,11 +32,11 @@ Websocket: $(OBJECTS)
 clean:
 	rm -f $(EXEC) *.o libwebsocket.a
 
-run: all
-	./$(EXEC) $(PORT)
+run:
+	./$(EXEC)
 
 valgrind:
-	valgrind --leak-check=full --log-file="valgrind.log" --track-origins=yes --show-reachable=yes ./$(EXEC) $(PORT)
+	valgrind --leak-check=full --log-file="valgrind.log" --track-origins=yes --show-reachable=yes ./$(EXEC)
 
 base64.o: base64.c base64.h
 	$(CC) $(CFLAGS) -c base64.c

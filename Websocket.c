@@ -899,12 +899,12 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
             if ( (pthread_create(&pthread_id, &pthread_attr, cmdline, NULL)) < 0 ){
                 server_error(strerror(errno), server_socket, l);
             }
+            /**
+             * Do not wait for the thread to terminate.
+             */
+            pthread_detach(pthread_id);
         }
 
-        /**
-         * Do not wait for the thread to terminate.
-         */
-        pthread_detach(pthread_id);
 
         while (1) {
                 client_length = sizeof(client_addr);
