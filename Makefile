@@ -15,8 +15,8 @@ CXX= $(CROSS_COMPILE)g++
 # CC 		= gcc
 # CXX 		= g++
 
-CFLAGS += -g -std=gnu9x -w -DRUPIFY -DINVG_RELEASE
-# CFLAGS += -g -std=gnu9x -w -DRUPIFY
+# CFLAGS += -g -std=gnu9x -w -DRUPIFY -DINVG_RELEASE
+CFLAGS += -g -std=gnu9x -w -DRUPIFY
 
 INCL 	= Handshake.c
 OBJECTS = Errors.o Datastructures.o Communicate.o sha1.o md5.o base64.o utf8.o

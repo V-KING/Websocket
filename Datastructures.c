@@ -124,6 +124,7 @@ void list_remove (ws_list *l, ws_client *r) {
 
 			ws_closeframe(n, c);
 			shutdown(n->socket_id, SHUT_RDWR);
+                        print_dbg("SHUT_RDWR\n");
 
 			client_free(n);
 
@@ -324,11 +325,13 @@ void ws_closeframe(ws_client *n, ws_connection_close s) {
 		 * 		- Use ws_connection_close
 		 */ 
 		send(n->socket_id, frame, 2, 0);
+                print_dbg("RFC6455\n");
 	} else if (n->headers->type == HYBI00) {
 		frame[0] = '\xFF';
 		frame[1] = '\x00';
 		send(n->socket_id, frame, 2, 0);
 		pthread_cancel(n->thread_id);
+                print_dbg("HYBI00\n");
 	}
 }
 
@@ -352,7 +355,6 @@ void ws_send(ws_client *n, ws_message *m) {
 	} else if ( n->headers->type == HYBI07 || n->headers->type == RFC6455 
 			|| n->headers->type == HYBI10) {
 		send(n->socket_id, m->enc, m->enc_len, 0);
-            print_buf( m->enc, m->enc_len);
 	}
 }
 
