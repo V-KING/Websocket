@@ -68,7 +68,7 @@ int ws_send_text(ws_client *wsclient, char *text){
 
 /*
  * caz javascript can't do well with binary data;
- * so just send text, message_new() is new a text message.
+ * so just send text
  */
 int ws_send_text_all(char *text){
     __pBegin
@@ -999,8 +999,73 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         return EXIT_SUCCESS;
 }
 
-#ifdef TEST_MAIN_PC
-// #if 1
+// #ifdef TEST_MAIN_PC
+#if 1
+struct key_value{
+    char key[20];
+    char value[20];
+    char *_tmp;
+};
+
+#define MAX_NUM_KV_STR      5
+struct key_value a_kv[MAX_NUM_KV_STR];
+
+/*
+ * ParamStr=/vk?name=lbl&age=29&addr&high=176
+ * TODO:
+ * {
+ *      vk: {
+ *              "name" : "lbl",
+ *              "age"  : 29,
+ *              "addr" : "ShenZhen",
+ *              "high" : 176,
+ *      }
+ * }
+ * output: a_kv
+ */
+static void parseCmdParamStr2KeyValue(char *token, struct key_value *a_kv){
+    int i = 0, j = 0;
+    char *p = NULL;
+    token = strtok(token, "/?");
+    print_dbg("cmd: %s\n", token);
+    if(token != NULL){
+        if((token = strtok(NULL, "?")) != NULL){
+            print_dbg("params: %s\n", token);
+            p = strtok(token, "&");
+            while(i<MAX_NUM_KV_STR && p != NULL){
+                //print_dbg("p = %s\n", p);
+                a_kv[i++]._tmp= p;
+                p = strtok(NULL, "&");
+            }
+            while(j<MAX_NUM_KV_STR && a_kv[j]._tmp != NULL){
+                if((a_kv[j]._tmp = strtok(a_kv[j]._tmp, "=")) != NULL){
+                    strcpy(a_kv[j].key, a_kv[j]._tmp);
+                }
+                
+                if((a_kv[j]._tmp = strtok(NULL, "=")) != NULL){
+                    strcpy(a_kv[j].value, a_kv[j]._tmp);
+                }
+                j++;
+            }
+        }
+    }
+}
+
+void parseHttpHeadersGetStr2KeyValues(char *headers_get,struct key_value *a_kv){
+    memset(a_kv, 0, sizeof (a_kv)/sizeof(a_kv[0]));
+    char *s = strdup(headers_get);
+    char *token = strtok(s, " ");
+    
+    if(token != NULL){
+        token = strtok(NULL, " ");
+        if(token!=NULL){
+            print_dbg("token = %s\n", token);
+            parseCmdParamStr2KeyValue(token, a_kv);
+        }
+    }
+    free(s);
+}
+
 void *onopen(ws_client *wsclient){
     __pBegin
     __pEnd
@@ -1012,16 +1077,32 @@ void *onclose(ws_client *wsclient){
 /*
  * don't need to free message.It will free after onmessage
  */
-void *onmessage(ws_client *wsclient, ws_message *message){
+void *onmessage(ws_client *n, ws_message *message){
     __pBegin
     /* here: ws_client->message == message */
-    print_info("Received(%s): %s\n",wsclient->client_ip , message->msg);
-    ws_send_text(wsclient, message->msg);
+    print_info("Received(%s): %s\n",n->client_ip , message->msg);
+    ws_send_text(n, message->msg);
     ws_send_text_all(message->msg);
+    
+    struct key_value a_kv[MAX_NUM_KV_STR];
+    parseCmdParamStr2KeyValue(message->msg, a_kv);
+    for(int j = 0; a_kv[j].key[0]!=0; j++){
+        print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
+    }
+    
+//     parseHttpHeadersGetStr2KeyValues(n->headers->get, a_kv);
+//     for(int j = 0; a_kv[j].key[0]!=0; j++){
+//         print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
+//     }
+    
+
     __pEnd
 }
 
 
+/*
+ *see also another websocket: https://github.com/payden/libwebsock
+ */
 int main(int argc, char *argv[]){
     struct IWebsocket iwebsocket;
     iwebsocket.port      = 8000;
