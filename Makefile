@@ -16,18 +16,21 @@ CXX= $(CROSS_COMPILE)g++
 # CXX 		= g++
 
 # CFLAGS += -g -std=gnu9x -w -DRUPIFY -DINVG_RELEASE
-CFLAGS += -g -std=gnu9x -w -DRUPIFY
-
+CFLAGS += -g -std=gnu9x -w -DRUPIFY  -IcJSON
+LDFLAGS  = \
+	-lrt  -lpthread \
+	-lcjson -LcJSON
 INCL 	= Handshake.c
 OBJECTS = Errors.o Datastructures.o Communicate.o sha1.o md5.o base64.o utf8.o
 EXEC 	= Websocket
 
-.PHONY: Websocket clean valgrind 
+.PHONY: Websocket clean valgrind
 
 all: Websocket
 
-Websocket: $(OBJECTS) 
-	$(CC) $(CFLAGS) $(INCL) $(OBJECTS) -lpthread $(EXEC).c -o $(EXEC) -std=c99
+Websocket: $(OBJECTS) $(EXEC).o Handshake.o 
+	$(CC)  $^ $(LDFLAGS) -o $@
+# 	$(CC) $(CFLAGS) $(INCL) $(OBJECTS) $(LDFLAGS) $(EXEC).c -o $(EXEC) -std=c99
 
 clean:
 	rm -f $(EXEC) *.o libwebsocket.a
@@ -37,6 +40,9 @@ run:
 
 valgrind:
 	valgrind --leak-check=full --log-file="valgrind.log" --track-origins=yes --show-reachable=yes ./$(EXEC)
+
+$(EXEC).o:
+	$(CC) $(CFLAGS) -c $(EXEC).c
 
 base64.o: base64.c base64.h
 	$(CC) $(CFLAGS) -c base64.c

@@ -39,7 +39,7 @@ extern "C" {
 typedef struct {
     void *(*malloc_fn)(size_t sz);
     void (*free_fn)(void *ptr);
-} S2jHook;
+} S2jHook, *S2jHook_t;
 
 #define S2J_STRUCT_GET_int_ELEMENT(to_struct, from_json, _element) \
     json_temp = cJSON_GetObjectItem(from_json, #_element); \

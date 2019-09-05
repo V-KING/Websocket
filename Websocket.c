@@ -25,6 +25,8 @@ SOFTWARE.
 #include "Errors.h"
 #include "debug.h"
 #include "IWebsocket.h"
+#include "cJSON.h"
+#include "s2j.h"
 
 #define PORT 4567
 
@@ -1001,6 +1003,43 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
 
 // #ifdef TEST_MAIN_PC
 #if 1
+// 不要使用cJSON的动态库，可能存在如下问题：
+// 1. 动态库全局变量s2jHook的问题
+// S2jHook s2jHook = {
+//         .malloc_fn = malloc,
+//         .free_fn = free,
+// };
+/*****json to struct********************/
+typedef struct {
+    char name[16];
+} Hometown;
+
+typedef struct {
+    uint8_t id;
+    double weight;
+    uint8_t score[8];
+    char name[10];
+    Hometown hometown;
+} Student;
+static void *json_to_struct(cJSON* json_obj) {
+    /* create Student structure object */
+    s2j_create_struct_obj(struct_student, Student);
+
+    /* deserialize data to Student structure object. */
+    s2j_struct_get_basic_element(struct_student, json_obj, int, id);
+    s2j_struct_get_array_element(struct_student, json_obj, int, score);
+    s2j_struct_get_basic_element(struct_student, json_obj, string, name);
+    s2j_struct_get_basic_element(struct_student, json_obj, double, weight);
+
+    /* deserialize data to Student.Hometown structure object. */
+    s2j_struct_get_struct_element(struct_hometown, struct_student, json_hometown, json_obj, Hometown, hometown);
+    s2j_struct_get_basic_element(struct_hometown, json_hometown, string, name);
+
+    /* return Student structure object pointer */
+    return struct_student;
+}
+/*****json to struct********************/
+
 struct key_value{
     char key[20];
     char value[20];
@@ -1009,6 +1048,8 @@ struct key_value{
 
 #define MAX_NUM_KV_STR      5
 struct key_value a_kv[MAX_NUM_KV_STR];
+
+
 
 /*
  * ParamStr=/vk?name=lbl&age=29&addr&high=176
@@ -1079,23 +1120,59 @@ void *onclose(ws_client *wsclient){
  */
 void *onmessage(ws_client *n, ws_message *message){
     __pBegin
+    
     /* here: ws_client->message == message */
     print_info("Received(%s): %s\n",n->client_ip , message->msg);
     ws_send_text(n, message->msg);
     ws_send_text_all(message->msg);
+ 
+    /* ws://127.0.0.1:8000/vk?name=lbl&age=29&addr&high=176 */
+    if(0){ 
+        parseHttpHeadersGetStr2KeyValues(n->headers->get, a_kv);
+        for(int j = 0; a_kv[j].key[0]!=0; j++){
+            print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
+        }
+    }
+
     
-    struct key_value a_kv[MAX_NUM_KV_STR];
-    parseCmdParamStr2KeyValue(message->msg, a_kv);
-    for(int j = 0; a_kv[j].key[0]!=0; j++){
-        print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
+    /* if the message is json text 
+    {
+        "id":   24,
+        "weight":       71.2,
+        "score":        [1, 2, 3, 4, 5, 6, 7, 8],
+        "name": "armink",
+        "hometown": {
+            "name": "China"
+        }
+    }
+    */
+    {
+        
+        cJSON *json_student = cJSON_Parse(message->msg);
+        if(json_student){
+            printf("%s\n", cJSON_Print(json_student));
+            Student *converted_student_obj = json_to_struct(json_student);
+            print_dbg("id:     %d\n", converted_student_obj->id);
+            print_dbg("weight: %f\n", converted_student_obj->weight);
+            print_dbg("score:  ");
+            printf("[");
+            for(int i=0; i < 8; i++){
+                printf("%d, ", converted_student_obj->score[i]);
+            }
+            printf("]\n");
+            print_dbg("hometown.name: %s\n", converted_student_obj->hometown.name);
+            s2j_delete_json_obj(json_student);
+            s2j_delete_struct_obj(converted_student_obj);
+        }else{
+            /*msg: vk?name=lbl&age=29&addr&high=176*/
+            struct key_value a_kv[MAX_NUM_KV_STR];
+            parseCmdParamStr2KeyValue(message->msg, a_kv);
+            for(int j = 0; a_kv[j].key[0]!=0; j++){
+                print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
+            }
+        }
     }
     
-//     parseHttpHeadersGetStr2KeyValues(n->headers->get, a_kv);
-//     for(int j = 0; a_kv[j].key[0]!=0; j++){
-//         print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
-//     }
-    
-
     __pEnd
 }
 

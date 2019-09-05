@@ -117,6 +117,7 @@ int main(void) {
         printf("%d, ", converted_student_obj->score[i]);
     }
     printf("]\n");
+    printf("%s\n", cJSON_Print(json_student));
     
 
     /* compare Student structure object */

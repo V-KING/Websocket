@@ -1,4 +1,7 @@
-CJSON_OBJ = cJSON.o
+# CROSS_COMPILE_PREFIX = /home/hhh/petalinux_tool/opt/pkg/petalinux/2018.3/tools/linux-i386/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-
+CC = $(CROSS_COMPILE_PREFIX)gcc
+
+CJSON_OBJ = cJSON.o s2j.o
 UTILS_OBJ = cJSON_Utils.o
 CJSON_LIBNAME = libcjson
 UTILS_LIBNAME = libcjson_utils
@@ -15,7 +18,7 @@ UTILS_SOVERSION = 1
 CJSON_SO_LDFLAG=-Wl,-soname=$(CJSON_LIBNAME).so.$(CJSON_SOVERSION)
 UTILS_SO_LDFLAG=-Wl,-soname=$(UTILS_LIBNAME).so.$(UTILS_SOVERSION)
 
-PREFIX ?= /usr/local
+PREFIX ?= output
 INCLUDE_PATH ?= include/cjson
 LIBRARY_PATH ?= lib
 
@@ -65,7 +68,7 @@ SHARED_CMD = $(CC) -shared -o
 
 .PHONY: all shared static tests clean install
 
-all: shared static tests
+all:  static tests
 
 shared: $(CJSON_SHARED) $(UTILS_SHARED)
 
@@ -87,22 +90,22 @@ $(CJSON_TEST): $(CJSON_TEST_SRC) cJSON.h
 #static libraries
 #cJSON
 $(CJSON_STATIC): $(CJSON_OBJ)
-	$(AR) rcs $@ $<
+	$(AR) rcs $@ $^
 #cJSON_Utils
 $(UTILS_STATIC): $(UTILS_OBJ)
-	$(AR) rcs $@ $<
+	$(AR) rcs $@ $^
 
 #shared libraries .so.1.0.0
 #cJSON
 $(CJSON_SHARED_VERSION): $(CJSON_OBJ)
-	$(CC) -shared -o $@ $< $(CJSON_SO_LDFLAG) $(LDFLAGS)
+	$(CC) -shared -o $@ $^ $(CJSON_SO_LDFLAG) $(LDFLAGS)
 #cJSON_Utils
 $(UTILS_SHARED_VERSION): $(UTILS_OBJ)
-	$(CC) -shared -o $@ $< $(UTILS_SO_LDFLAG) $(LDFLAGS)
+	$(CC) -shared -o $@ $^ $(UTILS_SO_LDFLAG) $(LDFLAGS)
 
 #objects
 #cJSON
-$(CJSON_OBJ): cJSON.c cJSON.h
+$(CJSON_OBJ): cJSON.c cJSON.h s2j.c s2j.h s2jdef.h
 #cJSON_Utils
 $(UTILS_OBJ): cJSON_Utils.c cJSON_Utils.h
 
@@ -129,8 +132,12 @@ install-cjson:
 install-utils: install-cjson
 	$(INSTALL) cJSON_Utils.h $(INSTALL_INCLUDE_PATH)
 	$(INSTALL) $(UTILS_SHARED) $(UTILS_SHARED_SO) $(UTILS_SHARED_VERSION) $(INSTALL_LIBRARY_PATH)
-
-install: install-cjson install-utils
+#s2j
+install-s2j:
+	$(INSTALL) s2j.h s2jdef.h $(INSTALL_INCLUDE_PATH)
+	
+	
+install: install-cjson install-utils install-s2j
 
 #uninstall
 #cJSON
@@ -147,14 +154,15 @@ uninstall-utils:
 	$(RM) $(INSTALL_LIBRARY_PATH)/$(UTILS_SHARED_VERSION)
 	$(RM) $(INSTALL_LIBRARY_PATH)/$(UTILS_SHARED_SO)
 	$(RM) $(INSTALL_INCLUDE_PATH)/cJSON_Utils.h
+uninstall-s2j:
+	$(RM) $(INSTALL_INCLUDE_PATH)/s2j.h
+	$(RM) $(INSTALL_INCLUDE_PATH)/s2jdef.h
 
-uninstall: uninstall-utils uninstall-cjson
-arm:
-	make -f Makefile_arm.mk
-arm_install:
-	make install -f Makefile_arm.mk
+uninstall: uninstall-utils uninstall-cjson uninstall-s2j
+
 clean:
 	$(RM) $(CJSON_OBJ) $(UTILS_OBJ) #delete object files
 	$(RM) $(CJSON_SHARED) $(CJSON_SHARED_VERSION) $(CJSON_SHARED_SO) $(CJSON_STATIC) #delete cJSON
 	$(RM) $(UTILS_SHARED) $(UTILS_SHARED_VERSION) $(UTILS_SHARED_SO) $(UTILS_STATIC) #delete cJSON_Utils
 	$(RM) $(CJSON_TEST)  #delete test
+	
