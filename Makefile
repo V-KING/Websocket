@@ -1,6 +1,7 @@
 # Edit by liubaolong@20190828
 # make pc
 # make libwebsocket_arm CROSS_COMPILE=/gcc_path/arm-linux-
+# make libwebsocket_pc
 
 CROSS_COMPILE ?= /home/hhh/petalinux_tool/opt/pkg/petalinux/2018.3/tools/linux-i386/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-
 
