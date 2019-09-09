@@ -288,7 +288,7 @@ ws_connection_close getWholeMessage(char *buffer, uint64_t buffer_length,
 	do {	
 		memset(buf, '\0', BUFFERSIZE);
 		if ((buf_length = recv(n->socket_id, buf, BUFFERSIZE, 0)) <= 0) {
-			printf("Didn't receive any message from client.\n\n");
+			print_err("Didn't receive any message from client.\n\n");
 			fflush(stdout);
 			return CLOSE_PROTOCOL;	
 		}
@@ -439,7 +439,7 @@ ws_connection_close communicate(ws_client *n, char *next, uint64_t next_len) {
 		 * Receive new message.
 		 */
 		if ((buffer_length = recv(n->socket_id, buffer, BUFFERSIZE, 0)) <= 0) {
-			printf("Didn't receive any message from client.\n\n");
+			print_err("Didn't receive any message from client.\n\n");
 			fflush(stdout);
 			return CLOSE_PROTOCOL;
 		}
@@ -494,7 +494,7 @@ ws_connection_close communicate(ws_client *n, char *next, uint64_t next_len) {
 					((next[1] & 0x7f) == 127 && next_len <= 14)) {
 				if ((buffer_length = recv(n->socket_id, (buffer+next_len), 
 								(BUFFERSIZE-next_len), 0)) <= 0) {
-					printf("Didn't receive any message from client.\n\n");
+					print_err("Didn't receive any message from client.\n\n");
 					fflush(stdout);
 					return CLOSE_PROTOCOL;	
 				}

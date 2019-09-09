@@ -38,6 +38,10 @@ ws_list *l;
 int port;
 int count_client = 0;
 
+const  ws_list * ws_get_clients_list(){
+    return l;
+}
+
 /*
  * caz javascript can't do well with binary data;
  * so just send text, message_new() is new a text message.
@@ -75,6 +79,7 @@ int ws_send_text(ws_client *wsclient, char *text){
  * so just send text
  */
 int ws_send_text_all(char *text){
+    __pBegin
     ws_connection_close   status;
     ws_message            *m = message_new();
     m->opcode[0] = '\x81'; 
@@ -83,6 +88,7 @@ int ws_send_text_all(char *text){
     char *temp = malloc( sizeof(char)*(m->len+1) );
     if (temp == NULL) {
         print_err("malloc err\n");
+        __pEnd
         return 0;
     }
     memset(temp, '\0', (m->len+1));
@@ -94,11 +100,13 @@ int ws_send_text_all(char *text){
     if ( (status = encodeMessage(m)) != CONTINUE) {
         message_free(m);
         free(m);
+        __pEnd
         return -1;
     }
     list_multicast_all(l, m);
     message_free(m);
     free(m); 
+    __pEnd
     return 0;
 }
 /**
@@ -769,6 +777,7 @@ void *handleClient_2(void *args) {
         }       
 
         list_add(l, n);
+        count_client++;
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         printf("Client has been validated and is now connected\n\n");
@@ -820,10 +829,6 @@ void *handleClient_2(void *args) {
         }
         
 _exit_handleclient:
-        /*
-         * TODO: onclose() 
-         */
-        iwebsocket->onclose(n);
         print_dbg("Shutting client down..\n\n");
         printf("> \n");
         fflush(stdout);
@@ -834,6 +839,10 @@ _exit_handleclient:
         print_dbg("count_client -- \n\n");
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
+        /*
+         * TODO: onclose() 
+         */
+        iwebsocket->onclose(n);
         pthread_cleanup_pop(0);
         pthread_exit((void *) EXIT_SUCCESS);
 }
@@ -960,8 +969,6 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                         server_error(strerror(errno), server_socket, l);
                 }
 
-                count_client++;
-
                 /**
                  * Save some information about the client, which we will
                  * later use to identify him with.
@@ -1001,8 +1008,8 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         return EXIT_SUCCESS;
 }
 
-#ifdef TEST_MAIN_PC
-// #if 1
+// #ifdef TEST_MAIN_PC
+#if 1
 // 不要使用cJSON的动态库，可能存在如下问题：
 // 1. 动态库全局变量s2jHook的问题
 // S2jHook s2jHook = {
@@ -1175,6 +1182,7 @@ void *onmessage(ws_client *n, ws_message *message){
             }
             if( 0 == strcmp(buf_cmd, "ws_ip") ) {
                 if( strcmp(a_kv[0].key, "get") == 0){
+                    /* '/ws_ip?get' */
                     char ip[20]      = {0};
                     char mask[20]    = {0};
                     char gateway[20] = {0};
@@ -1192,6 +1200,7 @@ void *onmessage(ws_client *n, ws_message *message){
                 
             }else{
                 print_err("Unkonw cmd: %s\n", buf_cmd);
+                ws_send_text(n, buf_cmd);
             }
         }
     }
@@ -1199,6 +1208,30 @@ void *onmessage(ws_client *n, ws_message *message){
     __pEnd
 }
 
+
+
+void *thread_loop_send(void *args){
+    __pBegin
+    const ws_list *l = NULL ; 
+    char buf[100] = {0};
+    while(1){
+        l = ws_get_clients_list();
+        if(l != NULL){
+            if(l->len > 0){
+                sleep(1);
+                print_dbg("Number of websocket client: %d\n", l->len);
+                memset(buf, 0, 100);
+                sprintf(buf, "Number of websocket client: %d", l->len);
+                ws_send_text_all(buf);
+            }else{
+                sleep(1);
+                print_dbg("no client\n");
+            }
+        }
+    }
+    __pEnd
+    pthread_exit(NULL);
+}
 
 /*
  *see also another websocket: https://github.com/payden/libwebsock
@@ -1212,7 +1245,14 @@ int main(int argc, char *argv[]){
     iwebsocket.max_client= 2;
     iwebsocket.bNeed_stdinput_for_test = 1;
     
+    
+    pthread_t _pthread_id;
+    pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
+    
     start_websocket_server(&iwebsocket);
+    
+    pthread_join(_pthread_id, NULL);
+    
     return 0;
 }
 #endif

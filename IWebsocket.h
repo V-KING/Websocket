@@ -17,5 +17,8 @@ struct IWebsocket{
  */
 extern int ws_send_text(ws_client *wsclient, char *text);
 extern int ws_send_text_all_client(char *text);
+extern int start_websocket_server(struct IWebsocket *iwebsocket);
+extern const ws_list *  ws_get_clients_list();
+
 
 #endif
