@@ -1011,8 +1011,8 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         return EXIT_SUCCESS;
 }
 
-// #ifdef TEST_MAIN_PC
-#if 1
+#ifdef TEST_MAIN_PC
+// #if 1
 // 不要使用cJSON的动态库，可能存在如下问题：
 // 1. 动态库全局变量s2jHook的问题
 // S2jHook s2jHook = {
