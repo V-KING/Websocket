@@ -16,7 +16,7 @@ CXX= $(CROSS_COMPILE)g++
 # CXX 		= g++
 
 # CFLAGS += -g -std=gnu9x -w -DRUPIFY -DINVG_RELEASE
-CFLAGS += -g -std=gnu9x -w -DRUPIFY  -IcJSON
+CFLAGS += -g -std=gnu9x -w -DRUPIFY  -IcJSON -Inet -I.
 LDFLAGS  = \
 	-lrt  -lpthread \
 	-lcjson -LcJSON
@@ -28,7 +28,7 @@ EXEC 	= Websocket
 
 all: Websocket
 
-Websocket: $(OBJECTS) $(EXEC).o Handshake.o 
+Websocket: $(OBJECTS) $(EXEC).o Handshake.o net/net_ip.o
 	$(CC)  $^ $(LDFLAGS) -o $@
 # 	$(CC) $(CFLAGS) $(INCL) $(OBJECTS) $(LDFLAGS) $(EXEC).c -o $(EXEC) -std=c99
 

@@ -27,6 +27,7 @@ SOFTWARE.
 #include "IWebsocket.h"
 #include "cJSON.h"
 #include "s2j.h"
+#include "net_ip.h"
 
 #define PORT 4567
 
@@ -39,7 +40,6 @@ int count_client = 0;
  * so just send text, message_new() is new a text message.
  */
 int ws_send_text(ws_client *wsclient, char *text){
-    __pBegin
     ws_connection_close   status;
     ws_message            *m = message_new();
     m->opcode[0] = '\x81'; 
@@ -64,7 +64,6 @@ int ws_send_text(ws_client *wsclient, char *text){
     list_multicast_one(l, wsclient, m);
     message_free(m);
     free(m); 
-    __pEnd
     return 0;
 }
 
@@ -73,7 +72,6 @@ int ws_send_text(ws_client *wsclient, char *text){
  * so just send text
  */
 int ws_send_text_all(char *text){
-    __pBegin
     ws_connection_close   status;
     ws_message            *m = message_new();
     m->opcode[0] = '\x81'; 
@@ -98,7 +96,6 @@ int ws_send_text_all(char *text){
     list_multicast_all(l, m);
     message_free(m);
     free(m); 
-    __pEnd
     return 0;
 }
 /**
@@ -775,7 +772,7 @@ void *handleClient_2(void *args) {
         printf("> \n");
         
         if(iwebsocket->max_client > 0){
-            print_dbg("max_client= %d, count_client=%d\n", iwebsocket->max_client, count_client);
+            //print_dbg("max_client= %d, count_client=%d\n", iwebsocket->max_client, count_client);
             if(count_client > iwebsocket->max_client){
                 print_err("max_client= %d, count_client=%d\n", iwebsocket->max_client, count_client);
                 ws_send_text(n, "Too many client. Server break this connection");
@@ -1064,14 +1061,15 @@ struct key_value a_kv[MAX_NUM_KV_STR];
  * }
  * output: a_kv
  */
-static void parseCmdParamStr2KeyValue(char *token, struct key_value *a_kv){
+static void parseCmdParamStr2KeyValue(char *token, char buf_path[], struct key_value *a_kv){
     int i = 0, j = 0;
     char *p = NULL;
     token = strtok(token, "/?");
-    print_dbg("cmd: %s\n", token);
+    //print_dbg("cmd: %s\n", token);
+    strcpy(buf_path, token);
     if(token != NULL){
         if((token = strtok(NULL, "?")) != NULL){
-            print_dbg("params: %s\n", token);
+            //params: name=lbl&age=29&addr&high=176
             p = strtok(token, "&");
             while(i<MAX_NUM_KV_STR && p != NULL){
                 //print_dbg("p = %s\n", p);
@@ -1092,7 +1090,7 @@ static void parseCmdParamStr2KeyValue(char *token, struct key_value *a_kv){
     }
 }
 
-void parseHttpHeadersGetStr2KeyValues(char *headers_get,struct key_value *a_kv){
+void parseHttpHeadersGetStr2KeyValues(const char *headers_get, char buf_path[], struct key_value *a_kv){
     memset(a_kv, 0, sizeof (a_kv)/sizeof(a_kv[0]));
     char *s = strdup(headers_get);
     char *token = strtok(s, " ");
@@ -1100,8 +1098,8 @@ void parseHttpHeadersGetStr2KeyValues(char *headers_get,struct key_value *a_kv){
     if(token != NULL){
         token = strtok(NULL, " ");
         if(token!=NULL){
-            print_dbg("token = %s\n", token);
-            parseCmdParamStr2KeyValue(token, a_kv);
+            //token = /vk?name=lbl&age=29&addr&high=176
+            parseCmdParamStr2KeyValue(token, buf_path, a_kv);
         }
     }
     free(s);
@@ -1123,17 +1121,18 @@ void *onmessage(ws_client *n, ws_message *message){
     
     /* here: ws_client->message == message */
     print_info("Received(%s): %s\n",n->client_ip , message->msg);
-    ws_send_text(n, message->msg);
-    ws_send_text_all(message->msg);
+    //ws_send_text(n, message->msg);
  
     /* ws://127.0.0.1:8000/vk?name=lbl&age=29&addr&high=176 */
-    if(0){ 
-        parseHttpHeadersGetStr2KeyValues(n->headers->get, a_kv);
-        for(int j = 0; a_kv[j].key[0]!=0; j++){
-            print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
-        }
+    char buf_cmd[10] = {0};
+    char json[4096] = {0};
+    parseHttpHeadersGetStr2KeyValues(n->headers->get, buf_cmd ,a_kv);
+#ifndef INVG_RELEASE
+    print_dbg("cmd = %s\n", buf_cmd);
+    for(int j = 0; a_kv[j].key[0]!=0; j++){
+        print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
     }
-
+#endif
     
     /* if the message is json text 
     {
@@ -1147,7 +1146,6 @@ void *onmessage(ws_client *n, ws_message *message){
     }
     */
     {
-        
         cJSON *json_student = cJSON_Parse(message->msg);
         if(json_student){
             printf("%s\n", cJSON_Print(json_student));
@@ -1164,11 +1162,33 @@ void *onmessage(ws_client *n, ws_message *message){
             s2j_delete_json_obj(json_student);
             s2j_delete_struct_obj(converted_student_obj);
         }else{
-            /*msg: vk?name=lbl&age=29&addr&high=176*/
+            /*msg: wsPerson?name=lbl&age=29&addr&high=176 */
             struct key_value a_kv[MAX_NUM_KV_STR];
-            parseCmdParamStr2KeyValue(message->msg, a_kv);
+            char buf_cmd[10] = {0};
+            parseCmdParamStr2KeyValue(message->msg, buf_cmd,a_kv);
+            print_dbg("cmd = %s\n", buf_cmd);
             for(int j = 0; a_kv[j].key[0]!=0; j++){
                 print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
+            }
+            if( 0 == strcmp(buf_cmd, "ws_ip") ) {
+                if( strcmp(a_kv[0].key, "get") == 0){
+                    char ip[20]      = {0};
+                    char mask[20]    = {0};
+                    char gateway[20] = {0};
+                    net_getIp("enp0s3",ip); net_getMask("enp0s3",mask); net_getGateway("enp0s3",gateway);
+                    print_dbg("ip : %s\n", ip);
+                    sprintf(json, "{\"ip\": \"%s\", \"mask\": \"%s\", \"gateway\": \"%s\"}", ip, mask, gateway);
+                    ws_send_text(n, json);
+                }else if(strcmp(a_kv[0].key, "set") == 0){
+                    /* TODO */
+                    print_err("set .....\n");
+                }
+            }else if( 0 == strcmp(buf_cmd, "ws_power") ) {
+                
+            }else if( 0 == strcmp(buf_cmd, "ws_antenna") ) {
+                
+            }else{
+                print_err("Unkonw cmd: %s\n", buf_cmd);
             }
         }
     }
