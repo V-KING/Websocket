@@ -833,8 +833,11 @@ _exit_handleclient:
         printf("> \n");
         fflush(stdout);
 
+        printf("#\n");
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        printf("#\n");
         list_remove(l, n);
+        printf("#\n");
         count_client--;
         print_dbg("count_client -- \n\n");
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -1075,17 +1078,23 @@ static void parseCmdParamStr2KeyValue(char *token, char buf_path[], struct key_v
     int i = 0, j = 0;
     char *p = NULL;
     token = strtok(token, "/?");
-    //print_dbg("cmd: %s\n", token);
+    print_dbg("#\n");
+    print_dbg("cmd: %s\n", token);
     strcpy(buf_path, token);
+    print_dbg("#\n");
     if(token != NULL){
+        print_dbg("#\n");
         if((token = strtok(NULL, "?")) != NULL){
+            print_dbg("#\n");
             //params: name=lbl&age=29&addr&high=176
             p = strtok(token, "&");
+            print_dbg("#\n");
             while(i<MAX_NUM_KV_STR && p != NULL){
                 //print_dbg("p = %s\n", p);
                 a_kv[i++]._tmp= p;
                 p = strtok(NULL, "&");
             }
+            print_dbg("#\n");
             while(j<MAX_NUM_KV_STR && a_kv[j]._tmp != NULL){
                 if((a_kv[j]._tmp = strtok(a_kv[j]._tmp, "=")) != NULL){
                     strcpy(a_kv[j].key, a_kv[j]._tmp);
@@ -1132,6 +1141,13 @@ void *onmessage(ws_client *n, ws_message *message){
     /* here: ws_client->message == message */
     print_info("Received(%s): %s\n",n->client_ip , message->msg);
     //ws_send_text(n, message->msg);
+    print_dbg("message->msg = %s\n", message->msg);
+    print_dbg("message->len= %d\n", message->len);
+    print_buf(message->msg, message->len);
+    if(message->len == 0){
+       print_err("msg is null\n");
+       return;
+    }
  
     /* ws://127.0.0.1:8000/vk?name=lbl&age=29&addr&high=176 */
     char buf_cmd[10] = {0};
@@ -1157,7 +1173,9 @@ void *onmessage(ws_client *n, ws_message *message){
     */
     {
         cJSON *json_student = cJSON_Parse(message->msg);
+        print_dbg("#\n");
         if(json_student){
+            print_dbg("#\n");
             printf("%s\n", cJSON_Print(json_student));
             Student *converted_student_obj = json_to_struct(json_student);
             print_dbg("id:     %d\n", converted_student_obj->id);
@@ -1172,10 +1190,14 @@ void *onmessage(ws_client *n, ws_message *message){
             s2j_delete_json_obj(json_student);
             s2j_delete_struct_obj(converted_student_obj);
         }else{
+            print_dbg("#\n");
             /*msg: wsPerson?name=lbl&age=29&addr&high=176 */
             struct key_value a_kv[MAX_NUM_KV_STR];
+            print_dbg("#\n");
             char buf_cmd[10] = {0};
+            print_dbg("#\n");
             parseCmdParamStr2KeyValue(message->msg, buf_cmd,a_kv);
+            print_dbg("#\n");
             print_dbg("cmd = %s\n", buf_cmd);
             for(int j = 0; a_kv[j].key[0]!=0; j++){
                 print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
