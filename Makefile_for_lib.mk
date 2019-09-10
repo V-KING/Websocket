@@ -18,7 +18,7 @@ LIBS    =
 
 # !!!===
 # target executable file or .a or .so
-target = libwebsocket.a
+target = libwebsocket.so
 
 # !!!===
 # compile flags
@@ -91,13 +91,13 @@ $(target): $(OBJS)
 
 ifeq ($(suffix $(target)), .so)
 	@$(NQ) "Generating dynamic lib file..." $(notdir $(target))
-	$(Q)$(CC) $(CXXFLAGS) $^ -o $(target) $(LDFLAGS) $(DYNC_FLAGS)
+	$(Q)$(CC) $(CCFLAGS) $^ -o $(target) $(LDFLAGS) $(DYNC_FLAGS)
 else ifeq ($(suffix $(target)), .a)
 	@$(NQ) "Generating static lib file..." $(notdir $(target))
 	$(Q)$(AR) $(ARFLAGS) -o $(target) $^
 else
 	@$(NQ) "Generating executable file..." $(notdir $(target))
-	$(Q)$(CC) $(CXXFLAGS) $^ -o $(target) $(LDFLAGS)
+	$(Q)$(CC) $(CCFLAGS) $^ -o $(target) $(LDFLAGS)
 endif
 
 # make all .c or .cpp
