@@ -62,7 +62,7 @@ CFLAGS += $(INCDIRS)
 CXXFLAGS += -std=c++11 
 
 # !!!===
-LDFLAGS += -lpthread -lrt -L$(DIR_Websocket) -lwebsocket -Wl,-rpath=$(DIR_Websocket)
+LDFLAGS += -lpthread -lrt -L$(DIR_Websocket) -L./ -lwebsocket -Wl,-rpath=$(DIR_Websocket) -Wl,-rpath=./
 
 DYNC_FLAGS += -fpic -shared
 
