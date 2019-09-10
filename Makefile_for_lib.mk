@@ -18,7 +18,7 @@ LIBS    =
 
 # !!!===
 # target executable file or .a or .so
-target = libwebsocket.so
+target = libwebsocket.a
 
 # !!!===
 # compile flags
