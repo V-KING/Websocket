@@ -18,7 +18,7 @@ LIBS    =
 
 # !!!===
 # target executable file or .a or .so
-target = libwebsocket.a
+target = libwebsocket.so
 
 # !!!===
 # compile flags
@@ -35,13 +35,13 @@ debug  = y
 #****************************************************************************
 
 ifeq ($(debug), y)
-    CFLAGS += -g -std=gnu9x -w -DRUPIFY
+    CFLAGS += -g -std=gnu9x -w -DRUPIFY -fPIC
 else
     CFLAGS += -O2 -s
 endif
 
 # !!!===
-DEFS    += -DJIMKENT
+DEFS    += -DJIMKENT 
 
 CFLAGS  += $(DEFS)
 CXXFLAGS = $(CFLAGS)
@@ -57,7 +57,7 @@ INCDIRS := $(addprefix -I, $(INC))
 
 # !!!===
 CFLAGS += $(INCDIRS)
-CXXFLAGS += -std=c++11
+CXXFLAGS += -std=c++11 
 
 # !!!===
 LDFLAGS += -lpthread -lrt
@@ -67,7 +67,6 @@ DYNC_FLAGS += -fpic -shared
 # !!!===
 # source file(s), including c file(s) or cpp file(s)
 SRC_DIRS = .
-
 SRCS := $(shell find $(SRC_DIRS) -maxdepth 1 -name '*.cpp' -or -name '*.c')
 
 OBJS = $(patsubst %.c, %.o, $(patsubst %.cpp, %.o, $(SRCS))) 
@@ -92,13 +91,13 @@ $(target): $(OBJS)
 
 ifeq ($(suffix $(target)), .so)
 	@$(NQ) "Generating dynamic lib file..." $(notdir $(target))
-	$(Q)$(CXX) $(CXXFLAGS) $^ -o $(target) $(LDFLAGS) $(DYNC_FLAGS)
+	$(Q)$(CC) $(CXXFLAGS) $^ -o $(target) $(LDFLAGS) $(DYNC_FLAGS)
 else ifeq ($(suffix $(target)), .a)
 	@$(NQ) "Generating static lib file..." $(notdir $(target))
 	$(Q)$(AR) $(ARFLAGS) -o $(target) $^
 else
 	@$(NQ) "Generating executable file..." $(notdir $(target))
-	$(Q)$(CXX) $(CXXFLAGS) $^ -o $(target) $(LDFLAGS)
+	$(Q)$(CC) $(CXXFLAGS) $^ -o $(target) $(LDFLAGS)
 endif
 
 # make all .c or .cpp
