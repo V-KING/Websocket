@@ -84,12 +84,22 @@
        $("#output").html("")
       });
 
+      /* test */
+      testjson()
+      
     });
-
+    
+    
+    
+  function testjson(){
+    var strjson = '{"deviceInfo":{"mag1Resistance":1726, "mag2Resistance":1726, "mag3Resistance":1726, "mag4Resistance":1726, "rfStatus":0, "antennaConnection":1 }, "cpsSettings":{"cpsConnectionStatus": 0 } }'
+    var obj_json = JSON.parse(strjson);
+    console.log(obj_json)
+  }
 
   function init()
   {
-     websocket = new WebSocket(wsUri);
+    websocket = new WebSocket(wsUri);
     websocket.onopen = function(evt) { onOpen(evt) };
     websocket.onclose = function(evt) { onClose(evt) };
     websocket.onmessage = function(evt) { onMessage(evt) };

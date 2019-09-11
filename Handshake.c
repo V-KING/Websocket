@@ -25,6 +25,7 @@ SOFTWARE.
 #include "md5.h"
 #include "sha1.h"
 #include "base64.h"
+#include "debug.h"
 
 /**
  * Returns whether x is a integral multiple of y.
@@ -326,7 +327,7 @@ int parseHeaders(char *string, ws_client *n, int port){
 	 * If the client header contained a host, we check whether we want to
 	 * accept the host.
 	 */
-	if (h->host != NULL) {
+	if (h->host != NULL && 0) {
 		i = isNeedleInHaystack(h->host, "Hosts.dat", port);
 
 		if (i < 0) {

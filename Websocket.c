@@ -1268,12 +1268,12 @@ int main(int argc, char *argv[]){
     iwebsocket.bNeed_stdinput_for_test = 1;
     
     
-    pthread_t _pthread_id;
-    pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
+//     pthread_t _pthread_id;
+//     pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
     
     start_websocket_server(&iwebsocket);
     
-    pthread_join(_pthread_id, NULL);
+//     pthread_join(_pthread_id, NULL);
     
     return 0;
 }
