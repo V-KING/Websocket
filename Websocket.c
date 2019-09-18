@@ -31,6 +31,7 @@ SOFTWARE.
 #include "cJSON.h"
 #include "s2j.h"
 #endif
+#include "AEI_S1/CpsDeviceMessage.h"
 
 #define PORT 4567
 
@@ -1011,14 +1012,14 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
         return EXIT_SUCCESS;
 }
 
-#ifdef TEST_MAIN_PC
-// #if 1
+// #ifdef TEST_MAIN_PC
+#if 1
 // 不要使用cJSON的动态库，可能存在如下问题：
 // 1. 动态库全局变量s2jHook的问题
-// S2jHook s2jHook = {
-//         .malloc_fn = malloc,
-//         .free_fn = free,
-// };
+S2jHook s2jHook = {
+        .malloc_fn = malloc,
+        .free_fn = free,
+};
 /*****json to struct********************/
 typedef struct {
     char name[16];
@@ -1056,7 +1057,7 @@ struct key_value{
     char *_tmp;
 };
 
-#define MAX_NUM_KV_STR      5
+#define MAX_NUM_KV_STR      20
 struct key_value a_kv[MAX_NUM_KV_STR];
 
 
@@ -1075,6 +1076,7 @@ struct key_value a_kv[MAX_NUM_KV_STR];
  * output: a_kv
  */
 static void parseCmdParamStr2KeyValue(char *token, char buf_path[], struct key_value *a_kv){
+    memset(a_kv, 0, sizeof (a_kv));
     int i = 0, j = 0;
     char *p = NULL;
     token = strtok(token, "/?");
@@ -1110,7 +1112,7 @@ static void parseCmdParamStr2KeyValue(char *token, char buf_path[], struct key_v
 }
 
 void parseHttpHeadersGetStr2KeyValues(const char *headers_get, char buf_path[], struct key_value *a_kv){
-    memset(a_kv, 0, sizeof (a_kv)/sizeof(a_kv[0]));
+    memset(a_kv, 0, sizeof (a_kv));
     char *s = strdup(headers_get);
     char *token = strtok(s, " ");
     
@@ -1152,8 +1154,10 @@ void *onmessage(ws_client *n, ws_message *message){
     /* ws://127.0.0.1:8000/vk?name=lbl&age=29&addr&high=176 */
     char buf_cmd[10] = {0};
     char json[4096] = {0};
+// #ifndef INVG_RELEASE
+#if 0
+    /* route path */
     parseHttpHeadersGetStr2KeyValues(n->headers->get, buf_cmd ,a_kv);
-#ifndef INVG_RELEASE
     print_dbg("cmd = %s\n", buf_cmd);
     for(int j = 0; a_kv[j].key[0]!=0; j++){
         print_dbg("a_kv[%d]: {%s: %s}\n", j,a_kv[j].key, a_kv[j].value);
@@ -1235,16 +1239,37 @@ void *onmessage(ws_client *n, ws_message *message){
 void *thread_loop_send(void *args){
     __pBegin
     const ws_list *l = NULL ; 
-    char buf[100] = {0};
+    char buf[4096] = {0};
+    DeviceMessage deviceMessage = {
+        .deviceInfo.mag1Resistance = 1726,
+        .deviceInfo.mag2Resistance = 1726,
+        .deviceInfo.mag3Resistance = 1726,
+        .deviceInfo.mag4Resistance = 1726,
+        .deviceInfo.rfStatus= 1,
+        .deviceInfo.antennaConnection = 1,
+        .deviceInfo.deviceDateTime= "2019/09/12 15:12:01",
+        .cpsSettings.cpsConnectionStatus = 1,
+    };
     while(1){
         l = ws_get_clients_list();
         if(l != NULL){
             if(l->len > 0){
-                sleep(1);
+                usleep(1000*1000);
                 print_dbg("Number of websocket client: %d\n", l->len);
                 memset(buf, 0, 100);
-                sprintf(buf, "Number of websocket client: %d", l->len);
-                ws_send_text_all(buf);
+                deviceMessage.deviceInfo.mag1Resistance = rand()/1000000;
+                deviceMessage.deviceInfo.mag2Resistance = rand()/1000000;
+                deviceMessage.deviceInfo.mag3Resistance = rand()/1000000;
+                deviceMessage.deviceInfo.mag4Resistance = rand()/10000000;
+                
+                cJSON *json_deviceMessage = DeviceMessage_to_json(&deviceMessage);
+                print_dbg("---send: -----------\n");
+                char *tmp= cJSON_Print(json_deviceMessage);
+                printf("%s\n", tmp);
+                print_dbg("---send end-----------\n");
+                ws_send_text_all(tmp);
+                s2j_delete_json_obj(json_deviceMessage);
+                free(tmp);
             }else{
                 sleep(1);
                 print_dbg("no client\n");
@@ -1268,12 +1293,12 @@ int main(int argc, char *argv[]){
     iwebsocket.bNeed_stdinput_for_test = 1;
     
     
-//     pthread_t _pthread_id;
-//     pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
+    pthread_t _pthread_id;
+    pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
     
     start_websocket_server(&iwebsocket);
     
-//     pthread_join(_pthread_id, NULL);
+    pthread_join(_pthread_id, NULL);
     
     return 0;
 }
