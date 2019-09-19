@@ -1285,9 +1285,9 @@ void *thread_loop_send(void *args){
     while(1){
         l = ws_get_clients_list();
         if(l != NULL){
-            print_info("waiting ...\n");
+//             print_info("waiting ...\n");
             pthread_mutex_lock(&l->lock);
-            print_info("waited lock .....\n");
+//             print_info("waited lock .....\n");
             if(l->len > 0){
 //                 usleep(100*1000);
                 sleep(1);
@@ -1303,13 +1303,13 @@ void *thread_loop_send(void *args){
                 //printf("%s\n", tmp);
                 ws_send_text_all(l,tmp);
                 pthread_mutex_unlock(&l->lock);
-                print_info("unlock .....\n");
+//                 print_info("unlock .....\n");
 
                 s2j_delete_json_obj(json_deviceMessage);
                 free(tmp);
             }else{
                 pthread_mutex_unlock(&l->lock);
-                print_info("unlock .....\n");
+//                 print_info("unlock .....\n");
                 sleep(1);
                 print_dbg("no client\n");
             }
