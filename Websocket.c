@@ -678,34 +678,30 @@ int main(int argc, char *argv[]) {
 void SetSocketOptParam(int fd) {
     int yes;
     //设置连接超时检测------------------------------------------------------------------
-//     yes = 1;//开启keepalive属性
-//     if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes))==-1){
-//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-//     }
-//     yes = 5;//如该连接在27秒内没有任何数据往来，则进行探测
-//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &yes, sizeof(yes))==-1){
-//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-//     }
-//     yes = 2;//探测时发包的时间间隔为1秒
-//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &yes, sizeof(yes))==-1){
-//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-//     }
-//     yes = 2;//探测尝试的次数，如果第1次探测包就收到响应了，则后2次的不再发
-//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &yes, sizeof(yes))==-1){
-//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-//     }
-
-    int keepAlive = 1; // 开启keepalive属性
-    int keepIdle = 5; // 如该连接在60秒内没有任何数据往来,则进行探测 
-    int keepInterval = 1; // 探测时发包的时间间隔为5 秒
-    int keepCount = 2; // 探测尝试的次数.如果第1次探测包就收到响应了,则后2次的不再发.
-    setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepAlive, sizeof(keepAlive));
-    setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&keepIdle, sizeof(keepIdle));
-    setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keepInterval, sizeof(keepInterval));
-    setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keepCount, sizeof(keepCount));
+    yes = 1;//开启keepalive属性
+    if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes))==-1){
+        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+    }
+    yes = 5;//如该连接在27秒内没有任何数据往来，则进行探测
+    if(setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &yes, sizeof(yes))==-1){
+        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+    }
+    yes = 2;//探测时发包的时间间隔为1秒
+    if(setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &yes, sizeof(yes))==-1){
+        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+    }
+    yes = 2;//探测尝试的次数，如果第1次探测包就收到响应了，则后2次的不再发
+    if(setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &yes, sizeof(yes))==-1){
+        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+    }
+    yes = 1000;//10秒内数据发送不成功
+    if(setsockopt(fd, SOL_TCP, TCP_USER_TIMEOUT, &yes, sizeof(yes))==-1){
+        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+    }
 }
 
 void *handleClient_2(void *args) {
+    
         pthread_detach(pthread_self());
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -1289,10 +1285,12 @@ void *thread_loop_send(void *args){
     while(1){
         l = ws_get_clients_list();
         if(l != NULL){
+            print_info("waiting ...\n");
             pthread_mutex_lock(&l->lock);
+            print_info("waited lock .....\n");
             if(l->len > 0){
-                //usleep(100*1000);
-                //sleep(1);
+//                 usleep(100*1000);
+                sleep(1);
                 //print_dbg("Number of websocket client: %d, ip[0]: %s\n", l->len, l->first->client_ip);
                 memset(buf, 0, 100);
                 deviceMessage.deviceInfo.mag1Resistance = rand()/1000000;
@@ -1305,10 +1303,13 @@ void *thread_loop_send(void *args){
                 //printf("%s\n", tmp);
                 ws_send_text_all(l,tmp);
                 pthread_mutex_unlock(&l->lock);
+                print_info("unlock .....\n");
+
                 s2j_delete_json_obj(json_deviceMessage);
                 free(tmp);
             }else{
                 pthread_mutex_unlock(&l->lock);
+                print_info("unlock .....\n");
                 sleep(1);
                 print_dbg("no client\n");
             }

@@ -412,10 +412,10 @@ void ws_send(ws_client *n, ws_message *m) {
 	} else if ( n->headers->type == HYBI07 || n->headers->type == RFC6455 
 			|| n->headers->type == HYBI10) {
         print_dbg("send(%d, %d)\n", n->socket_id, m->enc_len);
-		//if((ret = send(n->socket_id, m->enc, m->enc_len, 0)) <= 0){
-        if((ret = write(n->socket_id, m->enc, m->enc_len)) <= 0){
-            print_err("err: send()\n");
+		if((ret = send(n->socket_id, m->enc, m->enc_len, 0)) <= 0){
+            print_err("err: send(), %s\n", strerror(errno));
         }
+        print_dbg("#\n");
 	}
 	__pEnd
 }
