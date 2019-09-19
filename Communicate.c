@@ -22,6 +22,7 @@ SOFTWARE.
 
 #include "Communicate.h"
 #include "debug.h"
+// #include "undebug.h"
 
 /** 
  * Converts the unsigned 64 bit integer from host byte order to network byte 
@@ -347,7 +348,6 @@ ws_connection_close encodeMessage(ws_message *m) {
 		m->enc[1] = m->len;
 		memcpy(m->enc + 2, m->msg, m->len);
 	} else if (m->len <= 65535) {
-                print_info("<=65535\n");
 		uint16_t sz16;
 		length += 4;
 		m->enc = (char *) malloc(sizeof(char) * length);
@@ -409,6 +409,7 @@ ws_connection_close encodeMessage(ws_message *m) {
 }
 
 ws_connection_close communicate(ws_client *n, char *next, uint64_t next_len) {
+    __pBegin
 	int buffer_length = 0;
 	uint64_t buf_len;
 	char buffer[BUFFERSIZE];
@@ -438,6 +439,7 @@ ws_connection_close communicate(ws_client *n, char *next, uint64_t next_len) {
 		/**
 		 * Receive new message.
 		 */
+        print_err("waiting recv data.......................................\n");
 		if ((buffer_length = recv(n->socket_id, buffer, BUFFERSIZE, 0)) <= 0) {
 			print_err("Didn't receive any message from client.\n\n");
 			fflush(stdout);
@@ -490,16 +492,18 @@ ws_connection_close communicate(ws_client *n, char *next, uint64_t next_len) {
 			 * do something useful to it. Therefore, do yet another read 
 			 * operation.
 			 */
+            print_err("waitting recv data............\n");
 			if (next_len <= 6 || ((next[1] & 0x7f) == 126 && next_len <= 8) ||
 					((next[1] & 0x7f) == 127 && next_len <= 14)) {
+            print_err("waitting recv data.xxxxxxxxxxxxxxx, BUFFERSIZE-next_len = %d\n", BUFFERSIZE-next_len);
 				if ((buffer_length = recv(n->socket_id, (buffer+next_len), 
 								(BUFFERSIZE-next_len), 0)) <= 0) {
-					print_err("Didn't receive any message from client.\n\n");
+					print_err("Didn't receive any message from client: %s\n\n", strerror(errno));
 					fflush(stdout);
 					return CLOSE_PROTOCOL;	
 				}
 			}
-
+            print_err("waited data.xxxxxxxxxxxxxxx\n");
 			buf_len = (uint64_t)(buffer_length + next_len);
 
 			/**
@@ -576,5 +580,6 @@ ws_connection_close communicate(ws_client *n, char *next, uint64_t next_len) {
 		}
 	}
 
+	__pEnd
 	return 0;
 }

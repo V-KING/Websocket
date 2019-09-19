@@ -25,6 +25,9 @@ SOFTWARE.
 #include "Errors.h"
 #include "debug.h"
 #include "IWebsocket.h"
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
 
 #ifdef TEST_MAIN_PC
 #include "net_ip.h"
@@ -32,6 +35,8 @@ SOFTWARE.
 #include "s2j.h"
 #endif
 #include "AEI_S1/CpsDeviceMessage.h"
+
+// #include "undebug.h"
 
 #define PORT 4567
 
@@ -79,8 +84,7 @@ int ws_send_text(ws_client *wsclient, char *text){
  * caz javascript can't do well with binary data;
  * so just send text
  */
-int ws_send_text_all(char *text){
-    __pBegin
+int ws_send_text_all(ws_list *l,char *text){
     ws_connection_close   status;
     ws_message            *m = message_new();
     m->opcode[0] = '\x81'; 
@@ -104,10 +108,9 @@ int ws_send_text_all(char *text){
         __pEnd
         return -1;
     }
-    list_multicast_all(l, m);
+    list_multicast_all_unsafe(l, m);
     message_free(m);
     free(m); 
-    __pEnd
     return 0;
 }
 /**
@@ -116,6 +119,7 @@ int ws_send_text_all(char *text){
  */
 void sigint_handler(int sig) {
 	if (sig == SIGINT || sig == SIGSEGV) {
+        print_err("SIGINT || SIGSEGV : %d\n", sig);
 		if (l != NULL) {
 			list_free(l);
 			l = NULL;
@@ -123,6 +127,7 @@ void sigint_handler(int sig) {
 		(void) signal(sig, SIG_DFL);
 		exit(0);
 	} else if (sig == SIGPIPE) {
+        print_err("SIGPIPE\n");
 		(void) signal(sig, SIG_IGN);
 	}
 }
@@ -670,6 +675,36 @@ int main(int argc, char *argv[]) {
 }
 #endif
 
+void SetSocketOptParam(int fd) {
+    int yes;
+    //设置连接超时检测------------------------------------------------------------------
+//     yes = 1;//开启keepalive属性
+//     if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 5;//如该连接在27秒内没有任何数据往来，则进行探测
+//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 2;//探测时发包的时间间隔为1秒
+//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 2;//探测尝试的次数，如果第1次探测包就收到响应了，则后2次的不再发
+//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+
+    int keepAlive = 1; // 开启keepalive属性
+    int keepIdle = 5; // 如该连接在60秒内没有任何数据往来,则进行探测 
+    int keepInterval = 1; // 探测时发包的时间间隔为5 秒
+    int keepCount = 2; // 探测尝试的次数.如果第1次探测包就收到响应了,则后2次的不再发.
+    setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepAlive, sizeof(keepAlive));
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&keepIdle, sizeof(keepIdle));
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keepInterval, sizeof(keepInterval));
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keepCount, sizeof(keepCount));
+}
+
 void *handleClient_2(void *args) {
         pthread_detach(pthread_self());
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -753,9 +788,7 @@ void *handleClient_2(void *args) {
                         && strncmp("\n\n", n->string + (string_length-3), 2) != 0
                         && strncmp("\r\n\r\n", n->string + (string_length-8-5), 4) != 0
                         && strncmp("\n\n", n->string + (string_length-8-3), 2) != 0 );
-#ifdef INVG_RELEASE
-        printf("User connected with the following headers:\n%s\n\n", n->string);
-#endif
+        print_info("User connected with the following headers:\n%s\n\n", n->string);
         fflush(stdout);
 
         ws_header *h = header_new();
@@ -834,19 +867,19 @@ _exit_handleclient:
         printf("> \n");
         fflush(stdout);
 
-        printf("#\n");
+        print_dbg("#\n");
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-        printf("#\n");
+        print_dbg("#\n");
         list_remove(l, n);
-        printf("#\n");
+        print_dbg("#\n");
         count_client--;
         print_dbg("count_client -- \n\n");
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         /*
          * TODO: onclose() 
          */
         iwebsocket->onclose(n);
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_cleanup_pop(0);
         pthread_exit((void *) EXIT_SUCCESS);
 }
@@ -972,6 +1005,7 @@ int start_websocket_server(struct IWebsocket *iwebsocket) {
                 if ( (client_socket = accept(server_socket, (struct sockaddr *) &client_addr, &client_length)) < 0) {
                         server_error(strerror(errno), server_socket, l);
                 }
+                SetSocketOptParam(client_socket);
 
                 /**
                  * Save some information about the client, which we will
@@ -1128,10 +1162,12 @@ void parseHttpHeadersGetStr2KeyValues(const char *headers_get, char buf_path[], 
 
 void *onopen(ws_client *wsclient){
     __pBegin
+    print_err("open\n");
     __pEnd
 }
 void *onclose(ws_client *wsclient){
     __pBegin
+    print_err("close\n");
     __pEnd
 }
 /*
@@ -1234,28 +1270,30 @@ void *onmessage(ws_client *n, ws_message *message){
     __pEnd
 }
 
-
+DeviceMessage deviceMessage = {
+    .deviceInfo.mag1Resistance = 1726,
+    .deviceInfo.mag2Resistance = 1726,
+    .deviceInfo.mag3Resistance = 1726,
+    .deviceInfo.mag4Resistance = 1726,
+    .deviceInfo.rfStatus= 1,
+    .deviceInfo.antennaConnection = 1,
+    .deviceInfo.deviceDateTime= "2019/09/12 15:12:01",
+    .cpsSettings.cpsConnectionStatus = 1,
+};
 
 void *thread_loop_send(void *args){
     __pBegin
     const ws_list *l = NULL ; 
     char buf[4096] = {0};
-    DeviceMessage deviceMessage = {
-        .deviceInfo.mag1Resistance = 1726,
-        .deviceInfo.mag2Resistance = 1726,
-        .deviceInfo.mag3Resistance = 1726,
-        .deviceInfo.mag4Resistance = 1726,
-        .deviceInfo.rfStatus= 1,
-        .deviceInfo.antennaConnection = 1,
-        .deviceInfo.deviceDateTime= "2019/09/12 15:12:01",
-        .cpsSettings.cpsConnectionStatus = 1,
-    };
+
     while(1){
         l = ws_get_clients_list();
         if(l != NULL){
+            pthread_mutex_lock(&l->lock);
             if(l->len > 0){
-                usleep(1000*1000);
-                print_dbg("Number of websocket client: %d\n", l->len);
+                //usleep(100*1000);
+                //sleep(1);
+                //print_dbg("Number of websocket client: %d, ip[0]: %s\n", l->len, l->first->client_ip);
                 memset(buf, 0, 100);
                 deviceMessage.deviceInfo.mag1Resistance = rand()/1000000;
                 deviceMessage.deviceInfo.mag2Resistance = rand()/1000000;
@@ -1263,14 +1301,14 @@ void *thread_loop_send(void *args){
                 deviceMessage.deviceInfo.mag4Resistance = rand()/10000000;
                 
                 cJSON *json_deviceMessage = DeviceMessage_to_json(&deviceMessage);
-                print_dbg("---send: -----------\n");
                 char *tmp= cJSON_Print(json_deviceMessage);
-                printf("%s\n", tmp);
-                print_dbg("---send end-----------\n");
-                ws_send_text_all(tmp);
+                //printf("%s\n", tmp);
+                ws_send_text_all(l,tmp);
+                pthread_mutex_unlock(&l->lock);
                 s2j_delete_json_obj(json_deviceMessage);
                 free(tmp);
             }else{
+                pthread_mutex_unlock(&l->lock);
                 sleep(1);
                 print_dbg("no client\n");
             }
@@ -1278,6 +1316,10 @@ void *thread_loop_send(void *args){
     }
     __pEnd
     pthread_exit(NULL);
+}
+void * thread_start_websocket_server(void *arg){
+    struct IWebsocket *piwebsocket = (struct IWebsocket*)arg;
+    start_websocket_server(piwebsocket);
 }
 
 /*
@@ -1293,12 +1335,13 @@ int main(int argc, char *argv[]){
     iwebsocket.bNeed_stdinput_for_test = 1;
     
     
+    pthread_t _pthread_id0;
     pthread_t _pthread_id;
+    pthread_create(&_pthread_id0, NULL, thread_start_websocket_server, &iwebsocket);
     pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
     
-    start_websocket_server(&iwebsocket);
-    
     pthread_join(_pthread_id, NULL);
+    pthread_join(_pthread_id0, NULL);
     
     return 0;
 }

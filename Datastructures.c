@@ -22,6 +22,7 @@ SOFTWARE.
 
 #include "Datastructures.h"
 #include "debug.h"
+#include "undebug.h"
 
 /**
  * Creates a new list structure.
@@ -51,7 +52,9 @@ ws_list *list_new (void) {
 void list_free (ws_list *l) {
 	ws_client *n, *p;
 	ws_connection_close c = CLOSE_SHUTDOWN;
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	n = l->first;
 	
 	while (n != NULL) {
@@ -69,6 +72,7 @@ void list_free (ws_list *l) {
 
 	l->first = l->last = NULL;
 	pthread_mutex_unlock(&l->lock);	
+    print_info("unlock .....\n");
 	pthread_mutex_destroy(&l->lock);
 	free(l);
 }
@@ -80,7 +84,9 @@ void list_free (ws_list *l) {
  * @param type(ws_client *) n [Client]
  */
 void list_add (ws_list *l, ws_client *n) {
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	
 	if (l->first != NULL) {
 		l->last = l->last->next = n;	
@@ -91,6 +97,7 @@ void list_add (ws_list *l, ws_client *n) {
 	l->len++;
 	
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
 }
 
 /**
@@ -102,11 +109,14 @@ void list_add (ws_list *l, ws_client *n) {
 void list_remove (ws_list *l, ws_client *r) {
 	ws_client *n, *p;
 	ws_connection_close c = CLOSE_SHUTDOWN;
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	n = l->first;
 
 	if (n == NULL || r == NULL) {
 		pthread_mutex_unlock(&l->lock);
+        print_info("unlock .....\n");
 		return;
 	}
 
@@ -146,6 +156,8 @@ void list_remove (ws_list *l, ws_client *r) {
 	}
 
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
+    print_dbg("list len = %d\n", l->len);
 }
 
 /**
@@ -156,12 +168,14 @@ void list_remove (ws_list *l, ws_client *r) {
 void list_remove_all (ws_list *l) {
 	ws_client *n;
 	ws_connection_close c = CLOSE_POLICY;
-
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	n = l->first;
 
 	if (n == NULL) {
 		pthread_mutex_unlock(&l->lock);
+        print_info("unlock .....\n");
 		return;
 	}
 
@@ -171,6 +185,7 @@ void list_remove_all (ws_list *l) {
 	} while (n != NULL); 
 
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
 }
 
 /**
@@ -180,13 +195,16 @@ void list_remove_all (ws_list *l) {
  */
 void list_print(ws_list *l) {
 	ws_client *n;
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	n = l->first;
 
 	if (n == NULL) {
 		printf("No clients are online.\n\n");
 		fflush(stdout);
 		pthread_mutex_unlock(&l->lock);
+        print_info("unlock .....\n");
 		return;
 	}
 
@@ -198,6 +216,7 @@ void list_print(ws_list *l) {
 		n = n->next;
 	} while (n != NULL);
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
 }
 
 /**
@@ -209,11 +228,14 @@ void list_print(ws_list *l) {
  */
 void list_multicast(ws_list *l, ws_client *n) {
 	ws_client *p;
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	p = l->first;
 	
 	if (p == NULL) {
 		pthread_mutex_unlock(&l->lock);
+        print_info("unlock .....\n");
 		return;
 	}
 
@@ -224,6 +246,7 @@ void list_multicast(ws_list *l, ws_client *n) {
 		p = p->next;
 	} while (p != NULL);
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
 }
 
 /**
@@ -235,11 +258,14 @@ void list_multicast(ws_list *l, ws_client *n) {
  */
 void list_multicast_one(ws_list *l, ws_client *n, ws_message *m) {
 	ws_client *p;
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	p = l->first;
 
 	if (p == NULL || n == NULL) {
 		pthread_mutex_unlock(&l->lock);
+        print_info("unlock .....\n");
 		return;
 	}
 
@@ -251,6 +277,7 @@ void list_multicast_one(ws_list *l, ws_client *n, ws_message *m) {
 		p = p->next;
 	} while (p != NULL);
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
 }
 
 /**
@@ -261,19 +288,41 @@ void list_multicast_one(ws_list *l, ws_client *n, ws_message *m) {
  */
 void list_multicast_all(ws_list *l, ws_message *m) {
 	ws_client *p;
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	p = l->first;
 
 	if (p == NULL) {
 		pthread_mutex_unlock(&l->lock);
+        print_info("unlock .....\n");
 		return;
 	}
 
 	do {
+        print_dbg("#\n");
 		ws_send(p, m);
+        print_dbg("#\n");
 		p = p->next;
 	} while (p != NULL);
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
+}
+
+void list_multicast_all_unsafe(ws_list *l, ws_message *m) {
+    ws_client *p;
+    p = l->first;
+
+    if (p == NULL) {
+        return;
+    }
+
+    do {
+        print_dbg("#\n");
+        ws_send(p, m);
+        print_dbg("#\n");
+        p = p->next;
+    } while (p != NULL);
 }
 
 /**
@@ -287,11 +336,14 @@ void list_multicast_all(ws_list *l, ws_message *m) {
  */
 ws_client *list_get(ws_list *l, char *addr, int socket) {
 	ws_client *p;
+    print_info("waiting ...\n");
 	pthread_mutex_lock(&l->lock);
+    print_info("waited lock .....\n");
 	p = l->first;
 	
 	if (p == NULL) {
 		pthread_mutex_unlock(&l->lock);
+        print_info("unlock .....\n");
 		return p;
 	}
 
@@ -302,6 +354,7 @@ ws_client *list_get(ws_list *l, char *addr, int socket) {
 		p = p->next;
 	} while (p != NULL);
 	pthread_mutex_unlock(&l->lock);
+    print_info("unlock .....\n");
 
 	return p;
 }
@@ -342,20 +395,29 @@ void ws_closeframe(ws_client *n, ws_connection_close s) {
  * @param type(ws_message *) m [Message structure, that will be sent]
  */
 void ws_send(ws_client *n, ws_message *m) {
+    __pBegin
+    int ret = -1;
 	if ( n->headers->type == HYBI00 ) {
 		/**
 		 * Adds 2 to the length of the message, as we have to put '\x00' and
 		 * '\xFF' in the front and end of the message.
 		 */
-		send(n->socket_id, m->hybi00, m->len+2, 0);
+        print_dbg("#\n");
+		if(send(n->socket_id, m->hybi00, m->len+2, 0) < 0){
             print_err("HYBI00\n");
+        }
 	} else if ( n->headers->type == HIXIE75 ) {
             print_err("HIXIE75\n");
 		
 	} else if ( n->headers->type == HYBI07 || n->headers->type == RFC6455 
 			|| n->headers->type == HYBI10) {
-		send(n->socket_id, m->enc, m->enc_len, 0);
+        print_dbg("send(%d, %d)\n", n->socket_id, m->enc_len);
+		//if((ret = send(n->socket_id, m->enc, m->enc_len, 0)) <= 0){
+        if((ret = write(n->socket_id, m->enc, m->enc_len)) <= 0){
+            print_err("err: send()\n");
+        }
 	}
+	__pEnd
 }
 
 /**
