@@ -11,7 +11,7 @@ ARFLAGS = -cr
 RM     = -rm -rf
 MAKE   = make
 
-CFLAGS  = 
+CFLAGS  = -DINVG_RELEASE
 LDFLAGS = 
 DEFS    =
 LIBS    =

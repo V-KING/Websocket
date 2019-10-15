@@ -279,7 +279,22 @@ void list_multicast_one(ws_list *l, ws_client *n, ws_message *m) {
 	pthread_mutex_unlock(&l->lock);
     print_info("unlock .....\n");
 }
+void list_multicast_one_unsafe(ws_list *l, ws_client *n, ws_message *m) {
+    ws_client *p;
+    p = l->first;
 
+    if (p == NULL || n == NULL) {
+        return;
+    }
+
+    do {
+        if (p == n) {
+            ws_send(p, m);
+            break;
+        }
+        p = p->next;
+    } while (p != NULL);
+}
 /**
  * Multicasts message to all client in the list.
  *

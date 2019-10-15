@@ -121,6 +121,7 @@ void list_remove_all(ws_list *l);
 void list_print(ws_list *l);
 void list_multicast(ws_list *l, ws_client *n);
 void list_multicast_one(ws_list *l, ws_client *n, ws_message *m);
+void list_multicast_one_unsafe(ws_list *l, ws_client *n, ws_message *m);
 void list_multicast_all(ws_list *l, ws_message *m);
 void list_multicast_all_unsafe(ws_list *l, ws_message *m);
 

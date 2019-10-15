@@ -29,7 +29,7 @@ EXEC 	= Websocket
 
 all: Websocket
 
-Websocket: $(OBJECTS) $(EXEC).o Handshake.o net/net_ip.o
+Websocket:$(EXEC).o $(OBJECTS)  Handshake.o net/net_ip.o
 	$(CC)  $^ $(LDFLAGS) -o $@
 # 	$(CC) $(CFLAGS) $(INCL) $(OBJECTS) $(LDFLAGS) $(EXEC).c -o $(EXEC) -std=c99
 

@@ -28,6 +28,8 @@ SOFTWARE.
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
+#include <time.h>
+
 
 #ifdef TEST_MAIN_PC
 #include "net_ip.h"
@@ -74,7 +76,7 @@ int ws_send_text(ws_client *wsclient, char *text){
         free(m);
         return -1;
     }
-    list_multicast_one(l, wsclient, m);
+    list_multicast_one_unsafe(l, wsclient, m);
     message_free(m);
     free(m); 
     return 0;
@@ -1321,6 +1323,40 @@ void *thread_loop_send(void *args){
     __pEnd
     pthread_exit(NULL);
 }
+void *thread_loop_send1(void *args){
+    __pBegin
+    const ws_list *l = NULL ; 
+    char buf[4096] = {0};
+    uint64_t msgid = 0;
+    int      value = 0;
+
+    while(1){
+        l = ws_get_clients_list();
+        if(l != NULL){
+            pthread_mutex_lock(&l->lock);
+            if(l->len > 0){
+                usleep(5000);
+                //sleep(1);
+                
+                memset(buf, 0, 100);
+                srand((unsigned)time(NULL));
+                value = rand() % 1000;
+                sprintf(buf, "{\"type\": \"sensorData\", \"msgid\":%d, \"strainValue\":%d}", msgid++, value);
+          
+                ws_send_text_all(l, buf);
+                pthread_mutex_unlock(&l->lock);
+
+            }else{
+                pthread_mutex_unlock(&l->lock);
+                sleep(1);
+                print_dbg("no client\n");
+            }
+        }
+    }
+    __pEnd
+    pthread_exit(NULL);
+}
+
 void * thread_start_websocket_server(void *arg){
     struct IWebsocket *piwebsocket = (struct IWebsocket*)arg;
     start_websocket_server(piwebsocket);
@@ -1342,7 +1378,8 @@ int main(int argc, char *argv[]){
     pthread_t _pthread_id0;
     pthread_t _pthread_id;
     pthread_create(&_pthread_id0, NULL, thread_start_websocket_server, &iwebsocket);
-    pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
+//     pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
+    pthread_create(&_pthread_id, NULL, thread_loop_send1, NULL);
     
     pthread_join(_pthread_id, NULL);
     pthread_join(_pthread_id0, NULL);
