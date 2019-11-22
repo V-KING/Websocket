@@ -44,6 +44,13 @@ int main(int argc, char *argv[]){
     return 0;
 }
 ```
+## TODO
+- 客户端通过用户名密码调用服务端的接口来获取角色Token
+- 链接websoket时带上此Token（wss://localhost:7896/?token=Token）
+- websoket服务端建立连接时验证此Token是否有效，无效则连接失败
+- 有效，通过Token中的数据来设置此连接的一些信息（比如：用户ID类似的）
+- 以后客户端发送请求使用此连接
+
 
 # Websocket Server in C 
 

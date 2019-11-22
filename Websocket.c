@@ -1087,8 +1087,8 @@ static void *json_to_struct(cJSON* json_obj) {
 /*****json to struct********************/
 
 struct key_value{
-    char key[20];
-    char value[20];
+    char key[100];
+    char value[100];
     char *_tmp;
 };
 
