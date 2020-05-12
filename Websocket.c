@@ -35,8 +35,8 @@ SOFTWARE.
 #include "net_ip.h"
 #include "cJSON.h"
 #include "s2j.h"
-#endif
 #include "AEI_S1/CpsDeviceMessage.h"
+#endif
 
 // #include "undebug.h"
 
@@ -54,7 +54,7 @@ const  ws_list * ws_get_clients_list(){
  * caz javascript can't do well with binary data;
  * so just send text, message_new() is new a text message.
  */
-int ws_send_text(ws_client *wsclient, char *text){
+int ws_send_text(YourWsClient *wsclient, char *text){
     ws_connection_close   status;
     ws_message            *m = message_new();
     m->opcode[0] = '\x81'; 
@@ -86,7 +86,8 @@ int ws_send_text(ws_client *wsclient, char *text){
  * caz javascript can't do well with binary data;
  * so just send text
  */
-int ws_send_text_all(ws_list *l,char *text){
+int ws_send_text_all(char *text){
+    ws_list *l = ws_get_clients_list();
     ws_connection_close   status;
     ws_message            *m = message_new();
     m->opcode[0] = '\x81'; 
@@ -122,10 +123,10 @@ int ws_send_text_all(ws_list *l,char *text){
 void sigint_handler(int sig) {
 	if (sig == SIGINT || sig == SIGSEGV) {
         print_err("SIGINT || SIGSEGV : %d\n", sig);
-		if (l != NULL) {
-			list_free(l);
-			l = NULL;
-		}
+// 		if (l != NULL) {
+// 			list_free(l);
+// 			l = NULL;
+// 		}
 		(void) signal(sig, SIG_DFL);
 		exit(0);
 	} else if (sig == SIGPIPE) {
@@ -683,26 +684,52 @@ int main(int argc, char *argv[]) {
 void SetSocketOptParam(int fd) {
     int yes;
     //设置连接超时检测------------------------------------------------------------------
-    yes = 1;//开启keepalive属性
-    if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes))==-1){
-        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-    }
-    yes = 5;//如该连接在27秒内没有任何数据往来，则进行探测
-    if(setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &yes, sizeof(yes))==-1){
-        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-    }
-    yes = 2;//探测时发包的时间间隔为1秒
-    if(setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &yes, sizeof(yes))==-1){
-        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-    }
-    yes = 2;//探测尝试的次数，如果第1次探测包就收到响应了，则后2次的不再发
-    if(setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &yes, sizeof(yes))==-1){
-        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-    }
-    yes = 1000;//10秒内数据发送不成功
-    if(setsockopt(fd, SOL_TCP, TCP_USER_TIMEOUT, &yes, sizeof(yes))==-1){
-        fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
-    }
+//     yes = 1;//开启keepalive属性
+//     if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 5;//如该连接在27秒内没有任何数据往来，则进行探测
+//     if(setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 2;//探测时发包的时间间隔为1秒
+//     if(setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 2;//探测尝试的次数，如果第1次探测包就收到响应了，则后2次的不再发
+//     if(setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 1000;//10秒内数据发送不成功
+//     if(setsockopt(fd, SOL_TCP, TCP_USER_TIMEOUT, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+
+//     yes = 1;//开启keepalive属性
+//     if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 5;//如该连接在27秒内没有任何数据往来，则进行探测
+//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 2;//探测时发包的时间间隔为1秒
+//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+//     yes = 2;//探测尝试的次数，如果第1次探测包就收到响应了，则后2次的不再发
+//     if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &yes, sizeof(yes))==-1){
+//         fprintf(stderr,"Set Socket Option:%s\n\a",strerror(errno));
+//     }
+
+    int keepAlive = 1; // 开启keepalive属性
+    int keepIdle = 5; // 如该连接在60秒内没有任何数据往来,则进行探测 
+    int keepInterval = 1; // 探测时发包的时间间隔为5 秒
+    int keepCount = 1; // 探测尝试的次数.如果第1次探测包就收到响应了,则后2次的不再发.
+    setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepAlive, sizeof(keepAlive));
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&keepIdle, sizeof(keepIdle));
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keepInterval, sizeof(keepInterval));
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keepCount, sizeof(keepCount));
 }
 
 void *handleClient_2(void *args) {
@@ -848,7 +875,7 @@ void *handleClient_2(void *args) {
                         /* 
                          * TODO: void onmessage(ws_message*)
                          */
-                        iwebsocket->onmessage(n, n->message);
+                        iwebsocket->onmessage(n, n->message->msg, n->message->len);
                         //list_multicast_one(l, n, n->message);
                 }
 
@@ -1174,16 +1201,18 @@ void *onclose(ws_client *wsclient){
 /*
  * don't need to free message.It will free after onmessage
  */
-void *onmessage(ws_client *n, ws_message *message){
+// void *onmessage(YourWsClient *n, ws_message *message){
+void *onmessage(YourWsClient *n, char *str_msg, uint64_t str_msg_len){
     __pBegin
     
     /* here: ws_client->message == message */
-    print_info("Received(%s): %s\n",n->client_ip , message->msg);
-    //ws_send_text(n, message->msg);
-    print_dbg("message->msg = %s\n", message->msg);
-    print_dbg("message->len= %d\n", message->len);
-    print_buf(message->msg, message->len);
-    if(message->len == 0){
+    print_info("Received(%s): %s\n",n->client_ip , str_msg);
+    //ws_send_text(n, str_msg);
+    print_dbg("str_msg = %s\n", str_msg);
+    print_dbg("str_msg_len= %d\n", str_msg_len);
+    //TODO: here put a call_back funtion
+    print_buf(str_msg, str_msg_len);
+    if(str_msg_len == 0){
        print_err("msg is null\n");
        return;
     }
@@ -1213,7 +1242,7 @@ void *onmessage(ws_client *n, ws_message *message){
     }
     */
     {
-        cJSON *json_student = cJSON_Parse(message->msg);
+        cJSON *json_student = cJSON_Parse(str_msg);
         print_dbg("#\n");
         if(json_student){
             print_dbg("#\n");
@@ -1235,9 +1264,9 @@ void *onmessage(ws_client *n, ws_message *message){
             /*msg: wsPerson?name=lbl&age=29&addr&high=176 */
             struct key_value a_kv[MAX_NUM_KV_STR];
             print_dbg("#\n");
-            char buf_cmd[10] = {0};
+            char buf_cmd[100] = {0};
             print_dbg("#\n");
-            parseCmdParamStr2KeyValue(message->msg, buf_cmd,a_kv);
+            parseCmdParamStr2KeyValue(str_msg, buf_cmd,a_kv);
             print_dbg("#\n");
             print_dbg("cmd = %s\n", buf_cmd);
             for(int j = 0; a_kv[j].key[0]!=0; j++){
@@ -1286,6 +1315,7 @@ void *thread_loop_send(void *args){
     __pBegin
     const ws_list *l = NULL ; 
     char buf[4096] = {0};
+    struct IWebsocket *pIwebsocket = (struct IWebsocket*) args;
 
     while(1){
         l = ws_get_clients_list();
@@ -1306,7 +1336,9 @@ void *thread_loop_send(void *args){
                 cJSON *json_deviceMessage = DeviceMessage_to_json(&deviceMessage);
                 char *tmp= cJSON_Print(json_deviceMessage);
                 //printf("%s\n", tmp);
-                ws_send_text_all(l,tmp);
+                //ws_send_text_all(l,tmp);
+                pIwebsocket->send_text_all(tmp);
+                
                 pthread_mutex_unlock(&l->lock);
 //                 print_info("unlock .....\n");
 
@@ -1329,28 +1361,36 @@ void *thread_loop_send1(void *args){
     char buf[4096] = {0};
     uint64_t msgid = 0;
     int      value = 0;
+    struct IWebsocket *pIwebsocket = (struct IWebsocket *) args;
 
     while(1){
         l = ws_get_clients_list();
         if(l != NULL){
             pthread_mutex_lock(&l->lock);
             if(l->len > 0){
-                usleep(5000);
-                //sleep(1);
-                
                 memset(buf, 0, 100);
                 srand((unsigned)time(NULL));
+                
+                char testJSONContent[] ="{"
+                "\"type\":\"deviceStatus\","
+                "\"deviceInfo\":{\"mag1Resistance\":1, \"mag2Resistance\":1, \"mag3Resistance\":1, \"mag4Resistance\":1, \"rfStatus\":1, \"antennaConnection\":1,\"rfModule\":1, \"deviceDateTime\":\"2019-11-11 00:00:01\"},"
+                "\"cpsSettings\":{\"cpsConnectionStatus\":1},"
+                "\"upsSettings\":{\"upsStatus\":1}"
+                "}";
+
                 value = rand() % 1000;
                 sprintf(buf, "{\"type\": \"sensorData\", \"msgid\":%d, \"strainValue\":%d}", msgid++, value);
+                print_dbg("buf_len = %d\n", strlen(buf));
           
-                ws_send_text_all(l, buf);
+                //ws_send_text_all(l, testJSONContent);
+                pIwebsocket->send_text_all(testJSONContent);
                 pthread_mutex_unlock(&l->lock);
 
             }else{
                 pthread_mutex_unlock(&l->lock);
-                sleep(1);
                 print_dbg("no client\n");
             }
+            sleep(1);
         }
     }
     __pEnd
@@ -1367,19 +1407,22 @@ void * thread_start_websocket_server(void *arg){
  */
 int main(int argc, char *argv[]){
     struct IWebsocket iwebsocket;
-    iwebsocket.port      = 8000;
-    iwebsocket.onopen    = onopen;
-    iwebsocket.onclose   = onclose;
-    iwebsocket.onmessage = onmessage;
-    iwebsocket.max_client= 2;
-    iwebsocket.bNeed_stdinput_for_test = 1;
+    iwebsocket.port                     = 8000;
+    iwebsocket.onopen                   = onopen;
+    iwebsocket.onclose                  = onclose;
+    iwebsocket.onmessage                = onmessage;
+    iwebsocket.max_client               = 2;
+    iwebsocket.bNeed_stdinput_for_test  = 1;
+    
+    iwebsocket.send_text_all            = ws_send_text_all;
+    iwebsocket.send_text                = ws_send_text;
     
     
     pthread_t _pthread_id0;
     pthread_t _pthread_id;
     pthread_create(&_pthread_id0, NULL, thread_start_websocket_server, &iwebsocket);
 //     pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
-    pthread_create(&_pthread_id, NULL, thread_loop_send1, NULL);
+    pthread_create(&_pthread_id, NULL, thread_loop_send1, &iwebsocket);
     
     pthread_join(_pthread_id, NULL);
     pthread_join(_pthread_id0, NULL);

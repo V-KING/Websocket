@@ -51,7 +51,7 @@ LIBS    +=
 LDFLAGS += $(LIBS)
 
 # !!!===
-INC = ./ ../inc cJSON
+INC = ./ ../inc
 
 INCDIRS := $(addprefix -I, $(INC))
 

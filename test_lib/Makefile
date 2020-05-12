@@ -62,7 +62,8 @@ CFLAGS += $(INCDIRS)
 CXXFLAGS += -std=c++11 
 
 # !!!===
-LDFLAGS += -lpthread -lrt -L$(DIR_Websocket) -L./ -lwebsocket -Wl,-rpath=$(DIR_Websocket) -Wl,-rpath=./
+LDFLAGS += -lpthread -lrt -L$(DIR_Websocket) -lwebsocket -Wl,-rpath=$(DIR_Websocket) 
+# -L./ -Wl,-rpath=./
 
 DYNC_FLAGS += -fpic -shared
 
@@ -89,7 +90,7 @@ endif
 
 all: $(target)
 
-$(target): $(OBJS)
+$(target): $(OBJS) libwebsocket.so
 
 ifeq ($(suffix $(target)), .so)
 	@$(NQ) "Generating dynamic lib file..." $(notdir $(target))
@@ -111,8 +112,11 @@ endif
 	@$(NQ) "Compiling: " $(addsuffix .cpp, $(basename $(notdir $@)))
 	$(Q)$(CXX) $(CXXFLAGS) -c $< -o $@
 
+libwebsocket.so:
+	make -C ../ libwebsocket_pc
+
 clean:
 	@$(NQ) "Cleaning..."
 	$(Q)$(RM) $(target) $(OBJS)
 
-.PHONY: all clean
+.PHONY: all clean libwebsocket.so

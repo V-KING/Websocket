@@ -5,10 +5,14 @@
 
 CROSS_COMPILE ?= /home/hhh/petalinux_tool/opt/pkg/petalinux/2018.3/tools/linux-i386/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-
 
+LDFLAGS=
+CFLAGS=
+
 PLATFORM?=ARM
 ifeq ($(PLATFORM) , PC)
 CROSS_COMPILE :=
-CFLAGS = -DTEST_MAIN_PC
+CFLAGS += -DTEST_MAIN_PC
+CFLAGS += -IcJSON
 endif
 
 CC = $(CROSS_COMPILE)gcc
@@ -17,8 +21,8 @@ CXX= $(CROSS_COMPILE)g++
 # CXX 		= g++
 
 # CFLAGS += -g -std=gnu9x -w -DRUPIFY -DINVG_RELEASE
-CFLAGS += -g -std=gnu9x -w -DRUPIFY  -IcJSON -Inet -I.
-LDFLAGS  = \
+CFLAGS += -g -std=gnu9x -w -DRUPIFY   -Inet -I.
+LDFLAGS  += \
 	-lrt  -lpthread \
 	-lcjson -LcJSON
 INCL 	= Handshake.c

@@ -15,6 +15,7 @@ generate --> libwebsocket.a:
 
 
 ## How to use libwebsocket.a
+please see "test_lib/main.c"
 ```c
 #include "IWebsocket.h"
 void *onopen(ws_client *wsclient){
@@ -24,11 +25,28 @@ void *onclose(ws_client *wsclient){
 /*
  * don't need to free message.It will free after onmessage
  */
+#if 0
+//!deprecated
 void *onmessage(ws_client *wsclient, ws_message *message){
     /* here: ws_client->message == message */
     print_info("Received(%s): %s\n",wsclient->client_ip , message->msg);
     ws_send_text(wsclient, message->msg);
     ws_send_text_all(message->msg);
+}
+#endif
+void *onmessage(YourWsClient *wsclient, char *str_msg, int str_msg_len){
+    /* here: ws_client->message == message */
+    print_info("Received(%s): %s\n",wsclient->client_ip , str_msg);
+    
+    iwebsocket.send_text(ws_client, str_msg);
+    iwebsocket.send_text_all(str_msg)
+}
+
+int ws_send_text(YourWsClient *ws_client, char *str_msg, int str_msg_len){
+    //TODO:  Implement your code 
+}
+int ws_send_text_all(char *str_msg){
+    //TODO:  Implement your code 
 }
 
 int main(int argc, char *argv[]){
@@ -39,6 +57,9 @@ int main(int argc, char *argv[]){
     iwebsocket.onmessage = onmessage;
     iwebsocket.max_client= 2;
     iwebsocket.bNeed_stdinput_for_test = 1;
+    iwebsocket.send_text_all            = ws_send_text_all;
+    iwebsocket.send_text                = ws_send_text;
+
     
     start_websocket_server(&iwebsocket);
     return 0;
