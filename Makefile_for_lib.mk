@@ -67,9 +67,9 @@ DYNC_FLAGS += -fpic -shared
 # !!!===
 # source file(s), including c file(s) or cpp file(s)
 SRC_DIRS = .
-SRCS := $(shell find $(SRC_DIRS) -maxdepth 1 -name '*.cpp' -or -name '*.c')
-
-OBJS = $(patsubst %.c, %.o, $(patsubst %.cpp, %.o, $(SRCS))) 
+# SRCS := $(shell find $(SRC_DIRS) -maxdepth 1 -name '*.cpp' -or -name '*.c')
+# OBJS = $(patsubst %.c, %.o, $(patsubst %.cpp, %.o, $(SRCS))) 
+OBJS = base64.o  Communicate.o  Datastructures.o  debug.o  Errors.o  Handshake.o  md5.o  sha1.o  utf8.o  Websocket.o
 
 
 # !!!===

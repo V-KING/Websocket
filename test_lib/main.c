@@ -39,10 +39,6 @@ static int ws_send_text(YourWsClient *wsclient, char *text){
     free(m); 
     return 0;
 }
-/*
- * caz javascript can't do well with binary data;
- * so just send text
- */
 static int ws_send_text_all(char *text){
     ws_list *l = ws_get_clients_list();
     ws_connection_close   status;

@@ -3,7 +3,8 @@
 # make libwebsocket_arm CROSS_COMPILE=/gcc_path/arm-linux-
 # make libwebsocket_pc
 
-CROSS_COMPILE ?= /home/hhh/petalinux_tool/opt/pkg/petalinux/2018.3/tools/linux-i386/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-
+# CROSS_COMPILE ?= /home/hhh/petalinux_tool/opt/pkg/petalinux/2018.3/tools/linux-i386/gcc-arm-linux-gnueabi/bin/arm-linux-gnueabihf-
+CROSS_COMPILE ?= /home/vk/extdisk1/Tools/angstrom/arm/bin/arm-angstrom-linux-gnueabi-
 
 LDFLAGS=
 CFLAGS=
@@ -24,7 +25,7 @@ CXX= $(CROSS_COMPILE)g++
 CFLAGS += -g -std=gnu9x -w -DRUPIFY   -Inet -I.
 LDFLAGS  += \
 	-lrt  -lpthread \
-	-lcjson -LcJSON
+	-lcjson -LcJSON -fPIE
 INCL 	= Handshake.c
 OBJECTS = Errors.o Datastructures.o Communicate.o sha1.o md5.o base64.o utf8.o
 EXEC 	= Websocket
@@ -38,7 +39,7 @@ Websocket:$(EXEC).o $(OBJECTS)  Handshake.o net/net_ip.o
 # 	$(CC) $(CFLAGS) $(INCL) $(OBJECTS) $(LDFLAGS) $(EXEC).c -o $(EXEC) -std=c99
 
 clean:
-	rm -f $(EXEC) *.o libwebsocket.a
+	rm -f $(EXEC) *.o libwebsocket.a net/*.o
 
 run:
 	./$(EXEC)
@@ -79,4 +80,5 @@ libwebsocket_pc:
 test:
 	echo $(CC)
 pc:
+	make clean
 	make all PLATFORM=PC
