@@ -371,8 +371,8 @@ int main(int argc, char *argv[]){
     pthread_t _pthread_id;
     pthread_create(&_pthread_id0, NULL, thread_start_websocket_server, &iwebsocket);
 //     pthread_create(&_pthread_id, NULL, thread_loop_send, NULL);
-//     pthread_create(&_pthread_id, NULL, thread_loop_send1, &iwebsocket);
-//     pthread_join(_pthread_id, NULL);
+    pthread_create(&_pthread_id, NULL, thread_loop_send1, &iwebsocket);
+    pthread_join(_pthread_id, NULL);
     pthread_join(_pthread_id0, NULL);
     
     return 0;
